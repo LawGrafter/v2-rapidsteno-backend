@@ -14,7 +14,7 @@ const app = express();
 // ✅ Fix: Properly Configure CORS
 app.use(
   cors({
-    origin: ["http://localhost:3000", "https://rapidsteno.vercel.app", "https://rapid-steno-api.vercel.app"], // Allow frontend domains
+    origin: ["http://localhost:3000", "https://rapidstenographer.vercel.app", "https://rapidsteno.vercel.app", "https://rapid-steno-api.vercel.app"], // Allow frontend domains
     methods: "GET,POST,PUT,DELETE,PATCH",
     allowedHeaders: "Content-Type,Authorization",
   })
