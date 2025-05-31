@@ -1,23 +1,14 @@
-// const express = require('express');
-// const { register, login, updateUserStatus } = require('../controllers/authController');
-
-// const router = express.Router();
-
-// router.post('/register', register);
-// router.post('/login', login); // New login route
-// router.patch('/update-status', updateUserStatus);
-
-// module.exports = router;
-
 const express = require('express');
 const {
   register,
   login,
   updateUserStatus,
   getAllUsers,
+  getFilteredUsers,
   getUserById,
   deleteUserById,
   deleteAllUsers,
+  // forgotPassword
 } = require('../controllers/authController');
 
 const router = express.Router();
@@ -25,9 +16,14 @@ const router = express.Router();
 router.post('/register', register);
 router.post('/login', login);
 router.patch('/update-status', updateUserStatus);
+// router.post('/forgot-password', forgotPassword); 
 
 // ✅ Get all users
 router.get('/users', getAllUsers);
+
+// ✅ Filter users by status, subscriptionType, examCategory, repeatUser
+router.get('/users/filter', getFilteredUsers);
+
 
 // ✅ Get user by ID
 router.get('/users/:id', getUserById);
