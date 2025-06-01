@@ -11,7 +11,7 @@ const {
   // forgotPassword
 } = require('../controllers/authController');
 
-const { verifyOtp } = require("../controllers/authController");
+const { verifyOtp, forgotPassword, resetPassword } = require("../controllers/authController");
 
 const router = express.Router();
 
@@ -37,5 +37,8 @@ router.delete('/users/:id', deleteUserById);
 router.delete('/users', deleteAllUsers);
 
 router.post("/verify-otp", verifyOtp);
+
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password/:token', resetPassword);
 
 module.exports = router;

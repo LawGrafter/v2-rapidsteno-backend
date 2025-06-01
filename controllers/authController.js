@@ -443,3 +443,64 @@ exports.verifyOtp = async (req, res) => {
     res.status(500).json({ message: 'Verification failed', error });
   }
 };
+
+
+// ✅ Send Reset Password Link
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const resetToken = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    const resetLink = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
+
+    const transporter = nodemailer.createTransport({
+      service: 'Gmail',
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: process.env.SMTP_USER,
+      to: email,
+      subject: 'Password Reset Request',
+      html: `<p>Click the link below to reset your password (valid for 15 minutes):</p>
+             <a href="${resetLink}">${resetLink}</a>`
+    });
+
+    res.status(200).json({ message: 'Reset link sent to your email' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to send reset link', error });
+  }
+};
+
+// ✅ Reset Password
+exports.resetPassword = async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { password, confirmPassword } = req.body;
+
+    if (password !== confirmPassword) return res.status(400).json({ message: 'Passwords do not match' });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id);
+
+    if (!user) return res.status(404).json({ message: 'Invalid or expired token' });
+
+    user.password = password;
+    await user.save();
+
+    res.status(200).json({ message: 'Password reset successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Reset failed', error });
+  }
+};
