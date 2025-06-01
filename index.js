@@ -5,6 +5,7 @@ const bodyParser = require('body-parser');
 const connectDB = require('./config/db');
 const adminRoutes = require('./routes/adminRoutes');
 const submissionRoutes = require("./routes/userDicatationSubmissionRoutes");
+const feedbackRoutes = require("./routes/feedbackRoutes");
 
 dotenv.config();
 connectDB();
@@ -30,6 +31,7 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/dictation', require('./routes/dictationRoutes'));
 app.use('/admin', adminRoutes); // Prefix all admin routes
 app.use("/api/user/dictationSubmissions", submissionRoutes);
+app.use("/api/feedback", feedbackRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
