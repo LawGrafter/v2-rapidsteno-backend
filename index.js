@@ -32,7 +32,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/dictation', require('./routes/dictationRoutes'));
-app.use('/admin', adminRoutes); // Prefix all admin routes
+app.use('/api/admin', adminRoutes); // Prefix all admin routes
 app.use("/api/user/dictationSubmissions", submissionRoutes);
 app.use("/api/feedback", feedbackRoutes);
 

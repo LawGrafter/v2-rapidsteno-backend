@@ -1,6 +1,6 @@
 // For demonstration purposes — hardcoded admin credentials
 module.exports = {
-    adminId: 'admin',
+    adminEmail: 'admin@gmail.com',
     adminPassword: 'securePassword123'  // In real apps, store hashed passwords
   };
   
