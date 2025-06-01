@@ -6,6 +6,8 @@ const connectDB = require('./config/db');
 const adminRoutes = require('./routes/adminRoutes');
 const submissionRoutes = require("./routes/userDicatationSubmissionRoutes");
 const feedbackRoutes = require("./routes/feedbackRoutes");
+const cron = require('node-cron');
+const autoDeactivateUsers = require('./utils/autoDeactivateUsers');
 
 dotenv.config();
 connectDB();
@@ -17,7 +19,8 @@ app.use(
   cors({
     origin: ["http://localhost:3000", "https://rapidstenographer.vercel.app", "https://rapidsteno.vercel.app", "https://rapid-steno-api.vercel.app"], // Allow frontend domains
     methods: "GET,POST,PUT,DELETE,PATCH",
-    allowedHeaders: "Content-Type,Authorization",
+    // allowedHeaders: "Content-Type,Authorization",
+    allowedHeaders: ["Content-Type", "Authorization", "x-session-token"],
   })
 );
 
@@ -32,6 +35,13 @@ app.use('/api/dictation', require('./routes/dictationRoutes'));
 app.use('/admin', adminRoutes); // Prefix all admin routes
 app.use("/api/user/dictationSubmissions", submissionRoutes);
 app.use("/api/feedback", feedbackRoutes);
+
+// ✅ Schedule cron job to run daily at midnight
+cron.schedule('0 0 * * *', () => {
+  console.log("🔄 Running daily user deactivation check...");
+  autoDeactivateUsers();
+});
+
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

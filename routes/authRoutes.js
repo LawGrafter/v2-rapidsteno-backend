@@ -12,6 +12,8 @@ const {
 } = require('../controllers/authController');
 
 const { verifyOtp, forgotPassword, resetPassword } = require("../controllers/authController");
+const { userProtect } = require("../middleware/userMiddleware");
+
 
 const router = express.Router();
 
@@ -40,5 +42,10 @@ router.post("/verify-otp", verifyOtp);
 
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password/:token', resetPassword);
+
+// ✅ New Route: Validate Session
+router.get('/validate-session', userProtect, (req, res) => {
+  res.status(200).json({ message: 'Session is valid' });
+});
 
 module.exports = router;
