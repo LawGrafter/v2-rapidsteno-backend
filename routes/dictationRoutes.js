@@ -5,12 +5,12 @@ const dictationController = require('../controllers/dictationController');
 const authMiddleware = require('../middleware/authMiddleware');
 
 // POST dictation (upload mp3 + data)
-router.post('/upload', authMiddleware, dictationController.uploadDictation);
+router.post('/upload', dictationController.uploadDictation);
 
 router.get('/get', dictationController.getAllDictations);
 router.get('/audio/:id', dictationController.getAudioById);
-router.get('/getbyid/:id', authMiddleware, dictationController.getDictationById);
-router.put('/update/:id', authMiddleware, dictationController.updateDictation);
-router.delete('/delete/:id', authMiddleware, dictationController.deleteDictation);
+router.get('/getbyid/:id', dictationController.getDictationById);
+router.put('/update/:id', dictationController.updateDictation);
+router.delete('/delete/:id', dictationController.deleteDictation);
 
 module.exports = router;

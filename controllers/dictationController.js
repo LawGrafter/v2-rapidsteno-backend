@@ -243,21 +243,66 @@ exports.getDictationById = async (req, res) => {
 };
 
 // Update Dictation
-exports.updateDictation = async (req, res) => {
-  try {
-    const { title, category, paragraphText, totalwords, speed } = req.body;
+// exports.updateDictation = async (req, res) => {
+//   try {
+//     const { title, category, paragraphText, totalwords, speed } = req.body;
 
+//     const updateFields = { title, category, paragraphText, totalwords, speed };
+
+//     const dictation = await Dictation.findByIdAndUpdate(req.params.id, updateFields, { new: true });
+
+//     if (!dictation) return res.status(404).json({ success: false, message: 'Dictation not found' });
+
+//     res.status(200).json({ success: true, data: dictation });
+//   } catch (err) {
+//     res.status(500).json({ success: false, message: 'Failed to update dictation', error: err.message });
+//   }
+// };
+
+exports.updateDictation = (req, res) => {
+  upload(req, res, async (uploadErr) => {
+    if (uploadErr) {
+      return res.status(400).json({ success: false, message: uploadErr.message });
+    }
+
+    const { title, category, paragraphText, totalwords, speed } = req.body;
     const updateFields = { title, category, paragraphText, totalwords, speed };
 
-    const dictation = await Dictation.findByIdAndUpdate(req.params.id, updateFields, { new: true });
+    try {
+      if (req.file) {
+        // Upload new file to GridFS
+        const db = mongoose.connection.db;
+        const bucket = new GridFSBucket(db, { bucketName: 'dictationFiles' });
 
-    if (!dictation) return res.status(404).json({ success: false, message: 'Dictation not found' });
+        const uploadStream = bucket.openUploadStream(path.basename(req.file.originalname));
+        const fileStream = fs.createReadStream(req.file.path);
 
-    res.status(200).json({ success: true, data: dictation });
-  } catch (err) {
-    res.status(500).json({ success: false, message: 'Failed to update dictation', error: err.message });
-  }
+        fileStream.pipe(uploadStream)
+          .on('error', (error) => {
+            fs.unlinkSync(req.file.path);
+            return res.status(500).json({ success: false, message: 'Error saving file', error: error.message });
+          })
+          .on('finish', async () => {
+            fs.unlinkSync(req.file.path);
+            updateFields.fileupload = uploadStream.id;
+
+            const updated = await Dictation.findByIdAndUpdate(req.params.id, updateFields, { new: true });
+
+            if (!updated) return res.status(404).json({ success: false, message: 'Not found' });
+            res.status(200).json({ success: true, data: updated });
+          });
+      } else {
+        const updated = await Dictation.findByIdAndUpdate(req.params.id, updateFields, { new: true });
+        if (!updated) return res.status(404).json({ success: false, message: 'Not found' });
+        res.status(200).json({ success: true, data: updated });
+      }
+    } catch (err) {
+      if (req.file) fs.unlinkSync(req.file.path);
+      res.status(500).json({ success: false, message: 'Update failed', error: err.message });
+    }
+  });
 };
+
 
 // Delete Dictation
 exports.deleteDictation = async (req, res) => {
