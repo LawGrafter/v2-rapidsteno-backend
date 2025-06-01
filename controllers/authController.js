@@ -1,6 +1,8 @@
 const User = require('../models/userModel');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
 
 // exports.register = async (req, res) => {
 //   try {
@@ -120,6 +122,64 @@ const bcrypt = require('bcryptjs');
 // };
 
 
+// exports.register = async (req, res) => {
+//   try {
+//     const {
+//       firstName,
+//       lastName,
+//       email,
+//       phone,
+//       password,
+//       confirmPassword,
+//       gender,
+//       subscriptionType,
+//       examCategory
+//     } = req.body;
+
+//     if (password !== confirmPassword) {
+//       return res.status(400).json({ message: 'Passwords do not match' });
+//     }
+
+//     const existingUser = await User.findOne({ email });
+//     if (existingUser) {
+//       return res.status(400).json({ message: 'User already exists' });
+//     }
+
+//     const user = new User({
+//       firstName,
+//       lastName,
+//       email,
+//       phone,
+//       password,
+//       gender,
+//       subscriptionType,
+//       examCategory,
+//       isActive: true,
+//       lastActiveDate: new Date(),
+//     });
+
+//     await user.save();
+
+//     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+//     // res.status(201).json({ message: 'User registered successfully', token });
+//     res.status(201).json({
+//       message: 'User registered successfully',
+//       token,
+//       userId: user._id,
+//       firstName: user.firstName,
+//       lastName: user.lastName,
+//       email: user.email,
+//       phone: user.phone,
+//       subscriptionType: user.subscriptionType
+//     });
+    
+//   } catch (error) {
+//     res.status(500).json({ message: 'Server Error', error });
+//   }
+// };
+
+
 exports.register = async (req, res) => {
   try {
     const {
@@ -143,6 +203,8 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: 'User already exists' });
     }
 
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
     const user = new User({
       firstName,
       lastName,
@@ -154,36 +216,87 @@ exports.register = async (req, res) => {
       examCategory,
       isActive: true,
       lastActiveDate: new Date(),
+      isEmailVerified: false,
+      otp,
+      otpExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
     });
 
     await user.save();
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-
-    // res.status(201).json({ message: 'User registered successfully', token });
-    res.status(201).json({
-      message: 'User registered successfully',
-      token,
-      userId: user._id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      phone: user.phone,
-      subscriptionType: user.subscriptionType
+    // Send OTP to email
+    const transporter = nodemailer.createTransport({
+      service: 'Gmail',
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
     });
-    
+
+    await transporter.sendMail({
+      from: process.env.SMTP_USER,
+      to: email,
+      subject: 'Verify Your Email',
+      text: `Your OTP is: ${otp}. It will expire in 10 minutes.`,
+    });
+
+    res.status(201).json({
+      message: 'Registered. OTP sent to email. Please verify to activate your account.',
+      userId: user._id,
+      email: user.email,
+    });
+
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
   }
 };
 
 
+// exports.login = async (req, res) => {
+//   try {
+//     const { email, password } = req.body;
+
+//     const user = await User.findOne({ email });
+//     if (!user) return res.status(400).json({ message: 'Invalid email or password' });
+
+//     if (!user.isActive) {
+//       return res.status(403).json({ message: 'User is deactivated. Contact admin.' });
+//     }
+
+//     const isMatch = await bcrypt.compare(password, user.password);
+//     if (!isMatch) return res.status(400).json({ message: 'Invalid email or password' });
+
+//     // Update last active date
+//     user.lastActiveDate = new Date();
+//     await user.save();
+
+//     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+//     // res.status(200).json({ message: 'Login successful', token });
+//     res.status(200).json({
+//       message: 'Login successful',
+//       token,
+//       userId: user._id,
+//       firstName: user.firstName,
+//       lastName: user.lastName,
+//       email: user.email,
+//       phone: user.phone,
+//       subscriptionType: user.subscriptionType
+//     });
+    
+//   } catch (error) {
+//     res.status(500).json({ message: 'Server Error', error });
+//   }
+// };
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ message: 'Invalid email or password' });
+
+    if (!user.isEmailVerified) {
+      return res.status(403).json({ message: 'Please verify your email before logging in.' });
+    }
 
     if (!user.isActive) {
       return res.status(403).json({ message: 'User is deactivated. Contact admin.' });
@@ -192,28 +305,32 @@ exports.login = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ message: 'Invalid email or password' });
 
-    // Update last active date
+    const sessionToken = crypto.randomUUID();
+
+    user.sessionToken = sessionToken;
     user.lastActiveDate = new Date();
+    user.loginCount += 1;
     await user.save();
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
-    // res.status(200).json({ message: 'Login successful', token });
     res.status(200).json({
       message: 'Login successful',
       token,
+      sessionToken,
       userId: user._id,
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
       phone: user.phone,
-      subscriptionType: user.subscriptionType
+      subscriptionType: user.subscriptionType,
     });
-    
+
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error });
   }
 };
+
 
 
 exports.getFilteredUsers = async (req, res) => {
@@ -305,4 +422,24 @@ try {
   console.error("Delete User Error:", error);
   res.status(500).json({ message: 'Server Error', error });
 }
+};
+
+exports.verifyOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user || user.otp !== otp || user.otpExpiresAt < new Date()) {
+      return res.status(400).json({ message: 'Invalid or expired OTP' });
+    }
+
+    user.isEmailVerified = true;
+    user.otp = undefined;
+    user.otpExpiresAt = undefined;
+    await user.save();
+
+    res.status(200).json({ message: 'Email verified successfully. You can now log in.' });
+  } catch (error) {
+    res.status(500).json({ message: 'Verification failed', error });
+  }
 };

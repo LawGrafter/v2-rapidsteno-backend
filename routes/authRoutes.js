@@ -11,6 +11,8 @@ const {
   // forgotPassword
 } = require('../controllers/authController');
 
+const { verifyOtp } = require("../controllers/authController");
+
 const router = express.Router();
 
 router.post('/register', register);
@@ -33,5 +35,7 @@ router.delete('/users/:id', deleteUserById);
 
 // ✅ Delete all users
 router.delete('/users', deleteAllUsers);
+
+router.post("/verify-otp", verifyOtp);
 
 module.exports = router;
