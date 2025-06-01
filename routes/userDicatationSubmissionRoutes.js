@@ -14,7 +14,7 @@ const router = express.Router();
 
 const {
   submitDictation,
-  getCompletedDictationsByUser,
+  getCompletedDictationSubmissionsByUser,
   deleteUserSubmission,
 } = require("../controllers/userDictationsubmissionController");
 
@@ -24,7 +24,7 @@ router.post("/", submitDictation);
 
 // @route   GET /api/submissions/done/:userId
 // @desc    Get all dictation IDs completed by a user
-router.get("/done/:userId", getCompletedDictationsByUser);
+router.get("/done/:userId", getCompletedDictationSubmissionsByUser);
 
 // @route   DELETE /api/submissions/:userId/:dictationId
 // @desc    Delete a user's submission so they can retake

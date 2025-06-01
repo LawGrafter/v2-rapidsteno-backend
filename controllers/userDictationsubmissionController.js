@@ -141,24 +141,47 @@ exports.submitDictation = async (req, res) => {
   }
 };
 
-exports.getCompletedDictationsByUser = async (req, res) => {
+// exports.getCompletedDictationsByUser = async (req, res) => {
+//   try {
+//     const { userId } = req.params;
+
+//     const submissions = await UserDictationSubmission.find({ user: userId }).select('dictation');
+
+//     const completedDictationIds = submissions.map(sub => sub.dictation.toString());
+
+//     res.status(200).json({
+//       success: true,
+//       userId,
+//       completedDictations: completedDictationIds
+//     });
+//   } catch (error) {
+//     console.error("Fetch Error:", error);
+//     res.status(500).json({ message: "Failed to fetch completed dictations", error: error.message });
+//   }
+// };
+
+exports.getCompletedDictationSubmissionsByUser = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    const submissions = await UserDictationSubmission.find({ user: userId }).select('dictation');
-
-    const completedDictationIds = submissions.map(sub => sub.dictation.toString());
+    const submissions = await UserDictationSubmission.find({ user: userId })
+      .populate("dictation", "title category audioUrl duration") // Add more fields if needed
+      .sort({ submittedAt: -1 });
 
     res.status(200).json({
       success: true,
       userId,
-      completedDictations: completedDictationIds
+      submissions,
     });
   } catch (error) {
     console.error("Fetch Error:", error);
-    res.status(500).json({ message: "Failed to fetch completed dictations", error: error.message });
+    res.status(500).json({
+      message: "Failed to fetch full dictation submissions",
+      error: error.message,
+    });
   }
 };
+
 
 exports.deleteUserSubmission = async (req, res) => {
   try {
