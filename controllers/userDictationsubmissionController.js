@@ -165,7 +165,9 @@ exports.getCompletedDictationSubmissionsByUser = async (req, res) => {
     const { userId } = req.params;
 
     const submissions = await UserDictationSubmission.find({ user: userId })
-      .populate("dictation", "title category audioUrl duration") // Add more fields if needed
+      // .populate("dictation", "title category audioUrl duration")
+      .populate("dictation", "title category paragraphText audioUrl duration")
+
       .sort({ submittedAt: -1 });
 
     res.status(200).json({
