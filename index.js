@@ -36,6 +36,9 @@ app.use('/api/admin', adminRoutes); // Prefix all admin routes
 app.use("/api/user/dictationSubmissions", submissionRoutes);
 app.use("/api/feedback", feedbackRoutes);
 
+// Trust proxy to get correct client IP when behind a reverse proxy (like Nginx, Vercel, etc.)
+app.set('trust proxy', true);
+
 // ✅ Schedule cron job to run daily at midnight
 cron.schedule('0 0 * * *', () => {
   console.log("🔄 Running daily user deactivation check...");

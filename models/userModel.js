@@ -32,6 +32,19 @@ isEmailVerified: { type: Boolean, default: false },
 sessionToken: { type: String },
 loginCount: { type: Number, default: 0 },
 
+termConditions: {
+  type: Boolean,
+  required: true
+},
+referralCode: {
+  type: String,
+  default: ''
+},
+ipAddress: {
+  type: String,
+},
+
+
 
 }, { timestamps: true });
 

@@ -180,6 +180,76 @@ const nodemailer = require('nodemailer');
 // };
 
 
+// exports.register = async (req, res) => {
+//   try {
+//     const {
+//       firstName,
+//       lastName,
+//       email,
+//       phone,
+//       password,
+//       confirmPassword,
+//       gender,
+//       subscriptionType,
+//       examCategory
+//     } = req.body;
+
+//     if (password !== confirmPassword) {
+//       return res.status(400).json({ message: 'Passwords do not match' });
+//     }
+
+//     const existingUser = await User.findOne({ email });
+//     if (existingUser) {
+//       return res.status(400).json({ message: 'User already exists' });
+//     }
+
+//     const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+//     const user = new User({
+//       firstName,
+//       lastName,
+//       email,
+//       phone,
+//       password,
+//       gender,
+//       subscriptionType,
+//       examCategory,
+//       isActive: true,
+//       lastActiveDate: new Date(),
+//       isEmailVerified: false,
+//       otp,
+//       otpExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
+//     });
+
+//     await user.save();
+
+//     // Send OTP to email
+//     const transporter = nodemailer.createTransport({
+//       service: 'Gmail',
+//       auth: {
+//         user: process.env.SMTP_USER,
+//         pass: process.env.SMTP_PASS,
+//       },
+//     });
+
+//     await transporter.sendMail({
+//       from: process.env.SMTP_USER,
+//       to: email,
+//       subject: 'Verify Your Email',
+//       text: `Your OTP is: ${otp}. It will expire in 10 minutes.`,
+//     });
+
+//     res.status(201).json({
+//       message: 'Registered. OTP sent to email. Please verify to activate your account.',
+//       userId: user._id,
+//       email: user.email,
+//     });
+
+//   } catch (error) {
+//     res.status(500).json({ message: 'Server Error', error });
+//   }
+// };
+
 exports.register = async (req, res) => {
   try {
     const {
@@ -191,8 +261,14 @@ exports.register = async (req, res) => {
       confirmPassword,
       gender,
       subscriptionType,
-      examCategory
+      examCategory,
+      termConditions,
+      referralCode
     } = req.body;
+
+    if (!termConditions) {
+      return res.status(400).json({ message: 'You must accept the terms and conditions.' });
+    }
 
     if (password !== confirmPassword) {
       return res.status(400).json({ message: 'Passwords do not match' });
@@ -200,10 +276,12 @@ exports.register = async (req, res) => {
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
+      return res.status(400).json({ message: 'User with this email already exists' });
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
     const user = new User({
       firstName,
@@ -219,11 +297,14 @@ exports.register = async (req, res) => {
       isEmailVerified: false,
       otp,
       otpExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      termConditions,
+      referralCode,
+      ipAddress: ip,
     });
 
     await user.save();
 
-    // Send OTP to email
+    // Send OTP via email
     const transporter = nodemailer.createTransport({
       service: 'Gmail',
       auth: {
