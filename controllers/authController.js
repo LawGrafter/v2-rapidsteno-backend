@@ -397,3 +397,75 @@ exports.resetPassword = async (req, res) => {
     res.status(500).json({ message: 'Reset failed', error });
   }
 };
+
+
+// memory storage for demo (replace with Redis for production)
+const otpStore = {};
+
+exports.sendOtp = async (req, res) => {
+  const { email, firstName } = req.body;
+
+  const userExists = await User.findOne({ email });
+  if (userExists) return res.status(400).json({ message: 'User already exists' });
+
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  otpStore[email] = { otp, expiresAt: Date.now() + 10 * 60 * 1000 };
+
+  // send OTP
+  const transporter = nodemailer.createTransport({
+    service: 'Gmail',
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+
+  await transporter.sendMail({
+    from: process.env.SMTP_USER,
+    to: email,
+    subject: 'Your OTP for Rapid Steno',
+    html: `<p>Hello <strong>${firstName || "User"}</strong>,<br/>Your OTP is <b>${otp}</b>. It expires in 10 minutes.</p>`
+  });
+
+  res.status(200).json({ message: 'OTP sent successfully' });
+};
+
+
+exports.verifyOtpAndRegister = async (req, res) => {
+  const {
+    email, otp, firstName, lastName, phone,
+    password, confirmPassword, gender, subscriptionType,
+    examCategory, termConditions, referralCode
+  } = req.body;
+
+  const stored = otpStore[email];
+  if (!stored || stored.otp !== otp || stored.expiresAt < Date.now()) {
+    return res.status(400).json({ message: 'Invalid or expired OTP' });
+  }
+
+  if (password !== confirmPassword) {
+    return res.status(400).json({ message: 'Passwords do not match' });
+  }
+
+  const user = new User({
+    firstName,
+    lastName,
+    email,
+    phone,
+    password,
+    gender,
+    subscriptionType,
+    examCategory,
+    isActive: true,
+    isEmailVerified: true,
+    referralCode,
+    termConditions,
+    lastActiveDate: new Date(),
+    ipAddress: req.headers['x-forwarded-for'] || req.socket.remoteAddress
+  });
+
+  await user.save();
+  delete otpStore[email];
+
+  res.status(201).json({ message: 'User registered successfully' });
+};
