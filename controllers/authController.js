@@ -72,88 +72,88 @@ exports.register = async (req, res) => {
       to: email,
       subject: 'Verify Your Email',
       // text: `Your OTP is: ${otp}. It will expire in 10 minutes.`,
+      // html: `
+      // <!-- Paste your complete HTML email template here -->
+      // <!-- Replace any variables like ${firstName} and ${otp} as needed -->
+      
+      // <!-- Truncated preview -->
+      // <html lang="en">
+      // <head>
+      //   <meta charset="UTF-8">
+      //   <title>Email Verification</title>
+      //   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@100;200;300;400;500;600;700;800;900" rel="stylesheet">
+      //   <style>
+      //     body { font-family: 'Nunito', Arial, sans-serif; background-color: #f2f2f2; margin: 0; padding: 0; }
+      //   </style>
+      // </head>
+      // <body>
+      //   <table width="100%" style="background-color:#f2f2f2;">
+      //     <tr>
+      //       <td align="center">
+      //         <table width="600" style="background-color:#ffffff; border-radius:8px; overflow:hidden;">
+      //           <tr>
+      //             <td style="background-color:#002e2c; padding:20px; color:#ffffff;">
+      //               <img src="https://5dd79389a2.imgdist.com/pub/bfra/5lx74iao/fv0/1ra/wg1/Blue%20Modern%20Illustrative%20Engineering%20Services%20Logo%20Design%20.png" alt="Logo" width="160" style="border-radius:5px;">
+      //             </td>
+      //           </tr>
+      //           <tr>
+      //             <td style="padding:30px;">
+      //               <p style="font-size:16px;">Hi <strong>${firstName}</strong>,</p>
+      //               <p style="font-size:15px;">Thanks for signing up with <strong>Rapid Steno</strong>! To complete your registration, please verify your email using the code below:</p>
+      //               <p style="font-size:24px; font-weight:bold; text-align:center; background:#f1f3f5; padding:15px; border-radius:6px;">${otp}</p>
+      //               <p style="font-size:14px;">This OTP is valid for 10 minutes. If you didn’t initiate this registration, you can safely ignore this email.</p>
+      //               <p style="margin-top:30px; font-size:14px;">Happy Practicing,<br><strong>The Rapid Steno Team</strong></p>
+      //               <p style="font-size:14px;"><a href="http://www.rapidsteno.com" style="color:#0068A5; text-decoration:none;">www.rapidsteno.com</a></p>
+      //             </td>
+      //           </tr>
+      //           <tr>
+      //             <td style="background-color:#002e2c; text-align:center; padding:20px; color:#F8F8F8; font-size:14px;">
+      //               &copy; 2025 Rapid Steno. All Rights Reserved.
+      //             </td>
+      //           </tr>
+      //         </table>
+      //       </td>
+      //     </tr>
+      //   </table>
+      // </body>
+      // </html>
+      // `,
+      
       html: `
-      <!-- Paste your complete HTML email template here -->
-      <!-- Replace any variables like ${firstName} and ${otp} as needed -->
-      
-      <!-- Truncated preview -->
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <title>Email Verification</title>
-        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@100;200;300;400;500;600;700;800;900" rel="stylesheet">
-        <style>
-          body { font-family: 'Nunito', Arial, sans-serif; background-color: #f2f2f2; margin: 0; padding: 0; }
-        </style>
-      </head>
-      <body>
-        <table width="100%" style="background-color:#f2f2f2;">
-          <tr>
-            <td align="center">
-              <table width="600" style="background-color:#ffffff; border-radius:8px; overflow:hidden;">
-                <tr>
-                  <td style="background-color:#002e2c; padding:20px; color:#ffffff;">
-                    <img src="https://5dd79389a2.imgdist.com/pub/bfra/5lx74iao/fv0/1ra/wg1/Blue%20Modern%20Illustrative%20Engineering%20Services%20Logo%20Design%20.png" alt="Logo" width="160" style="border-radius:5px;">
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:30px;">
-                    <p style="font-size:16px;">Hi <strong>${firstName}</strong>,</p>
-                    <p style="font-size:15px;">Thanks for signing up with <strong>Rapid Steno</strong>! To complete your registration, please verify your email using the code below:</p>
-                    <p style="font-size:24px; font-weight:bold; text-align:center; background:#f1f3f5; padding:15px; border-radius:6px;">${otp}</p>
-                    <p style="font-size:14px;">This OTP is valid for 10 minutes. If you didn’t initiate this registration, you can safely ignore this email.</p>
-                    <p style="margin-top:30px; font-size:14px;">Happy Practicing,<br><strong>The Rapid Steno Team</strong></p>
-                    <p style="font-size:14px;"><a href="http://www.rapidsteno.com" style="color:#0068A5; text-decoration:none;">www.rapidsteno.com</a></p>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="background-color:#002e2c; text-align:center; padding:20px; color:#F8F8F8; font-size:14px;">
-                    &copy; 2025 Rapid Steno. All Rights Reserved.
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-        </table>
-      </body>
-      </html>
-      `,
-      
-//       html: `
-// <!DOCTYPE html>
-// <html lang="en" style="font-family: Arial, sans-serif;">
-// <head><meta charset="UTF-8"><title>Email Verification</title></head>
-// <body style="background-color: #f4f6f8; padding: 40px;">
-//   <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); overflow: hidden;">
-//     <tr>
-//       <td style="background-color: #0a66c2; color: #ffffff; padding: 20px 30px; text-align: center;">
-//         <h1 style="margin: 0; font-size: 24px;">Verify Your Email Address</h1>
-//       </td>
-//     </tr>
-//     <tr>
-//       <td style="padding: 30px; color: #333;">
-//         <p style="font-size: 16px; margin-bottom: 20px;">Hello <strong>${firstName}</strong>,</p>
-//         <p style="font-size: 15px; line-height: 1.6;">
-//           Thank you for registering with <strong>Rapid Steno</strong>. To complete your registration, please verify your email address using the OTP below.
-//         </p>
-//         <p style="font-size: 18px; font-weight: bold; text-align: center; margin: 30px 0; background: #f1f3f5; padding: 15px; border-radius: 6px; letter-spacing: 2px;">
-//           ${otp}
-//         </p>
-//         <p style="font-size: 14px; color: #555;">
-//           This OTP will expire in 10 minutes. If you didn’t request this, please ignore this email.
-//         </p>
-//         <p style="margin-top: 30px; font-size: 14px;">Best Regards,<br><strong>Rapid Steno Team</strong></p>
-//       </td>
-//     </tr>
-//     <tr>
-//       <td style="background-color: #f1f3f5; padding: 20px; text-align: center; font-size: 13px; color: #777;">
-//         &copy; Rapid Steno. All rights reserved.
-//       </td>
-//     </tr>
-//   </table>
-// </body>
-// </html>
-// `,
+<!DOCTYPE html>
+<html lang="en" style="font-family: Arial, sans-serif;">
+<head><meta charset="UTF-8"><title>Email Verification</title></head>
+<body style="background-color: #f4f6f8; padding: 40px;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); overflow: hidden;">
+    <tr>
+      <td style="background-color: #0a66c2; color: #ffffff; padding: 20px 30px; text-align: center;">
+        <h1 style="margin: 0; font-size: 24px;">Verify Your Email Address</h1>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding: 30px; color: #333;">
+        <p style="font-size: 16px; margin-bottom: 20px;">Hello <strong>${firstName}</strong>,</p>
+        <p style="font-size: 15px; line-height: 1.6;">
+          Thank you for registering with <strong>Rapid Steno</strong>. To complete your registration, please verify your email address using the OTP below.
+        </p>
+        <p style="font-size: 18px; font-weight: bold; text-align: center; margin: 30px 0; background: #f1f3f5; padding: 15px; border-radius: 6px; letter-spacing: 2px;">
+          ${otp}
+        </p>
+        <p style="font-size: 14px; color: #555;">
+          This OTP will expire in 10 minutes. If you didn’t request this, please ignore this email.
+        </p>
+        <p style="margin-top: 30px; font-size: 14px;">Best Regards,<br><strong>Rapid Steno Team</strong></p>
+      </td>
+    </tr>
+    <tr>
+      <td style="background-color: #f1f3f5; padding: 20px; text-align: center; font-size: 13px; color: #777;">
+        &copy; Rapid Steno. All rights reserved.
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+`,
 
     });
 
