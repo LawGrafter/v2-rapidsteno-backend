@@ -23,13 +23,14 @@ const userDictationSubmissionSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  accuracy: { type: Number, required: true },  
   totalMistakes: { type: Number, required: true },
   capitalMistakes: { type: Number, required: true },
   spellingMistakes: { type: Number, required: true },
   extraWords: { type: Number, required: true },
   missingWords: { type: Number, required: true },
-  playbackSpeed: { type: Number, required: true },   // ✅ new
-  typingTimer: { type: Number, required: true },     // ✅ new (in seconds)
+  playbackSpeed: { type: Number, required: true },  
+  typingTimer: { type: Number, required: true },    
   submittedAt: { type: Date, default: Date.now },
 }, { timestamps: true });
 
