@@ -424,7 +424,47 @@ exports.sendOtp = async (req, res) => {
     from: process.env.SMTP_USER,
     to: email,
     subject: 'Your OTP for Rapid Steno',
-    html: `<p>Hello <strong>${firstName || "User"}</strong>,<br/>Your OTP is <b>${otp}</b>. It expires in 10 minutes.</p>`
+    // html: `<p>Hello <strong>${firstName || "User"}</strong>,<br/>Your OTP is <b>${otp}</b>. It expires in 10 minutes.</p>`
+   
+    html: `
+    <!DOCTYPE html>
+    <html lang="en" style="font-family: Arial, sans-serif;">
+    <head><meta charset="UTF-8"><title>Email Verification</title></head>
+    <body style="background-color: #f4f6f8; padding: 40px;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); overflow: hidden;">
+        <tr>
+          <td style="background-color: #002E2C; color: #ffffff; padding: 20px 30px; text-align: center;">
+       
+         <img src="https://5dd79389a2.imgdist.com/pub/bfra/5lx74iao/fv0/1ra/wg1/Blue%20Modern%20Illustrative%20Engineering%20Services%20Logo%20Design%20.png" width="150" style="border-radius: 5px;">
+
+            </td>
+        </tr>
+  
+        <tr>
+          <td style="padding: 30px; color: #333;">
+            <p style="font-size: 16px; margin-bottom: 20px;">Hello <strong>${firstName}</strong>,</p>
+            <p style="font-size: 15px; line-height: 1.6;">
+              Thank you for registering with <strong>Rapid Steno</strong>. To complete your registration, please verify your email address using the OTP below.
+            </p>
+            <p style="font-size: 18px; font-weight: bold; text-align: center; margin: 30px 0; background: #f1f3f5; padding: 15px; border-radius: 6px; letter-spacing: 2px;">
+              ${otp}
+            </p>
+            <p style="font-size: 14px; color: #555;">
+              This OTP will expire in 10 minutes. If you didn’t request this, please ignore this email.
+            </p>
+            <p style="margin-top: 30px; font-size: 14px;">Best Regards,<br><strong>Rapid Steno Team</strong></p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background-color: #f1f3f5; padding: 20px; text-align: center; font-size: 13px; color: #777;">
+            &copy; Rapid Steno. All rights reserved.
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+    `,
+ 
   });
 
   res.status(200).json({ message: 'OTP sent successfully' });
