@@ -23,6 +23,13 @@ const userDictationSubmissionSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  mistakeSummary: {
+  capitalSpellingMistakes: [String],
+  spellingMistakes: [String],
+  extraWords: [String],
+  missingWords: [String],
+  punctuationMistakes: [String], // NEW FIELD from screenshot
+},
   accuracy: { type: Number, required: true },  
   totalMistakes: { type: Number, required: true },
   capitalMistakes: { type: Number, required: true },

@@ -15,7 +15,8 @@ exports.submitDictation = async (req, res) => {
       userTypeParagraph,
       playbackSpeed,  // ✅
       typingTimer,     // ✅
-      accuracy        
+      accuracy,
+      mistakeSummary         
     } = req.body;
 
     const user = await User.findById(userId);
@@ -38,7 +39,8 @@ exports.submitDictation = async (req, res) => {
       missingWords,
       accuracy,
       playbackSpeed,   // ✅
-      typingTimer      // ✅
+      typingTimer,      // ✅
+      mistakeSummary,
     });
 
     await newSubmission.save();
@@ -123,6 +125,18 @@ exports.updateUserSubmission = async (req, res) => {
     const { userId, dictationId } = req.params;
     const updateData = req.body;
 
+      // Optional: Ensure mistakeSummary is structured correctly
+    if (updateData.mistakeSummary) {
+      const summary = updateData.mistakeSummary;
+      updateData.mistakeSummary = {
+        capitalSpellingMistakes: summary.capitalSpellingMistakes || [],
+        spellingMistakes: summary.spellingMistakes || [],
+        extraWords: summary.extraWords || [],
+        missingWords: summary.missingWords || [],
+        punctuationMistakes: summary.punctuationMistakes || [],
+      };
+    }
+
     const updatedSubmission = await UserDictationSubmission.findOneAndUpdate(
       { user: userId, dictation: dictationId },
       { $set: updateData },
@@ -140,5 +154,55 @@ exports.updateUserSubmission = async (req, res) => {
   } catch (error) {
     console.error("Update Error:", error);
     res.status(500).json({ message: "Failed to update submission", error: error.message });
+  }
+};
+
+exports.getGlobalLeaderboard = async (req, res) => {
+  try {
+    // Group by user, calculate average accuracy and total submissions
+    const leaderboard = await UserDictationSubmission.aggregate([
+      {
+        $group: {
+          _id: "$user",
+          averageAccuracy: { $avg: "$accuracy" },
+          totalSubmissions: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { averageAccuracy: -1 } // descending by accuracy
+      },
+      {
+        $limit: 50 // top 50 users
+      },
+      {
+        $lookup: {
+          from: "users", // Make sure the collection name matches your actual MongoDB users collection
+          localField: "_id",
+          foreignField: "_id",
+          as: "userInfo"
+        }
+      },
+      {
+        $unwind: "$userInfo"
+      },
+      {
+        $project: {
+          _id: 0,
+          userId: "$userInfo._id",
+          name: { $concat: ["$userInfo.firstName", " ", "$userInfo.lastName"] },
+          email: "$userInfo.email",
+          averageAccuracy: { $round: ["$averageAccuracy", 2] },
+          totalSubmissions: 1
+        }
+      }
+    ]);
+
+    res.status(200).json({
+      success: true,
+      leaderboard
+    });
+  } catch (error) {
+    console.error("Leaderboard Fetch Error:", error);
+    res.status(500).json({ message: "Failed to generate leaderboard", error: error.message });
   }
 };
