@@ -14,7 +14,7 @@ const {
 const { verifyOtp, forgotPassword, resetPassword, sendOtp, verifyOtpAndRegister } = require("../controllers/authController");
 const { userProtect } = require("../middleware/userMiddleware");
 const checkUserActivity = require('../middleware/checkUserActivity');
-
+const adminProtect = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
@@ -27,20 +27,20 @@ router.patch('/update-status', updateUserStatus);
 // router.post('/forgot-password', forgotPassword); 
 
 // ✅ Get all users
-router.get('/users', getAllUsers);
+router.get('/users', adminProtect, getAllUsers);
 
 // ✅ Filter users by status, subscriptionType, examCategory, repeatUser
-router.get('/users/filter', getFilteredUsers);
+router.get('/users/filter', adminProtect, getFilteredUsers);
 
 
 // ✅ Get user by ID
-router.get('/users/:id', getUserById);
+router.get('/users/:id', adminProtect, getUserById);
 
 // ✅ Delete a single user
-router.delete('/users/:id', deleteUserById);
+router.delete('/users/:id', adminProtect, deleteUserById);
 
 // ✅ Delete all users
-router.delete('/users', deleteAllUsers);
+router.delete('/users', adminProtect, deleteAllUsers);
 
 router.post("/verify-otp", verifyOtp);
 

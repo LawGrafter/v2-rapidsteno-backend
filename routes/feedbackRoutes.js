@@ -7,8 +7,6 @@ const {
   deleteFeedback,
 } = require("../controllers/feedbackController");
 const { userProtect } = require("../middleware/userMiddleware");
-
-
 const adminProtect = require("../middleware/authMiddleware");
 
 

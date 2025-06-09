@@ -8,12 +8,15 @@ const {
   deleteUserSubmission,
   getGlobalLeaderboard,
 } = require("../controllers/userDictationsubmissionController");
+const { userProtect } = require("../middleware/userMiddleware");
+const adminProtect = require("../middleware/authMiddleware");
 
-router.post("/", submitDictation);
-router.get("/done/:userId", getCompletedDictationSubmissionsByUser);
-router.delete("/:userId/:dictationId", deleteUserSubmission);
-router.put("/:userId/:dictationId", updateUserSubmission); 
-router.get("/leaderboard", getGlobalLeaderboard);
+
+router.post("/", adminProtect, submitDictation);
+router.get("/done/:userId", userProtect, getCompletedDictationSubmissionsByUser);
+router.delete("/:userId/:dictationId", adminProtect, deleteUserSubmission);
+router.put("/:userId/:dictationId", adminProtect, updateUserSubmission); 
+router.get("/leaderboard", userProtect, getGlobalLeaderboard);
 
 
 module.exports = router;
