@@ -50,7 +50,7 @@ cron.schedule('0 0 * * *', () => {
 const autoReportMailer = require('./utils/autoReportMailer');
 
  //cron.schedule('*/1 * * * *', () => {
-  cron.schedule('0 */6 * * *', () => {
+cron.schedule('0 */6 * * *', () => {
 
   console.log("📤 Scheduled: Sending performance reports...");
   autoReportMailer();
