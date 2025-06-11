@@ -11,7 +11,7 @@ const {
   // forgotPassword
 } = require('../controllers/authController');
 
-const { verifyOtp, forgotPassword, resetPassword, sendOtp, verifyOtpAndRegister } = require("../controllers/authController");
+const { verifyOtp, forgotPassword, resetPassword, sendOtp, markTourAsSeen, markNotificationAsSeen, verifyOtpAndRegister } = require("../controllers/authController");
 const { userProtect } = require("../middleware/userMiddleware");
 const checkUserActivity = require('../middleware/checkUserActivity');
 const adminProtect = require("../middleware/authMiddleware");
@@ -20,6 +20,10 @@ const router = express.Router();
 
 router.post('/send-otp', sendOtp);
 router.post('/verify-otp-register', verifyOtpAndRegister);
+
+router.put('/users/:id/mark-tour-seen', markTourAsSeen);
+router.put('/users/:userId/mark-notification-seen/:notificationId', markNotificationAsSeen);
+
 
 router.post('/register', register);
 router.post('/login', login);

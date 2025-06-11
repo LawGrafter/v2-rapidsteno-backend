@@ -30,6 +30,15 @@ otpExpiresAt: { type: Date },
 isEmailVerified: { type: Boolean, default: false },
 sessionToken: { type: String },
 loginCount: { type: Number, default: 0 },
+hasSeenGrowthTour: { type: Boolean, default: false },
+hasSeenComparisonTour: { type: Boolean, default: false },
+
+seenNotificationIds: {
+  type: [String],
+  default: [],
+},
+
+
 
 termConditions: {
   type: Boolean,

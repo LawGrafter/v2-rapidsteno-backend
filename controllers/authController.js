@@ -217,6 +217,8 @@ exports.login = async (req, res) => {
       phone: user.phone,
       subscriptionType: user.subscriptionType,
       createdAt: user.createdAt, 
+      hasSeenGrowthTour: user.hasSeenGrowthTour || false,
+      hasSeenComparisonTour: user.hasSeenComparisonTour || false,
     });
 
   } catch (error) {
@@ -508,4 +510,39 @@ exports.verifyOtpAndRegister = async (req, res) => {
   delete otpStore[email];
 
   res.status(201).json({ message: 'User registered successfully' });
+};
+
+
+// In your user controller
+exports.markTourAsSeen = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    user.hasSeenTour = true;
+    await user.save();
+
+    res.status(200).json({ message: 'Tour marked as seen' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update tour status', error });
+  }
+};
+
+
+exports.markNotificationAsSeen = async (req, res) => {
+  try {
+    const { userId, notificationId } = req.params;
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (!user.seenNotificationIds.includes(notificationId)) {
+      user.seenNotificationIds.push(notificationId);
+      await user.save();
+    }
+
+    res.status(200).json({ message: 'Notification marked as seen' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to mark notification as seen', error });
+  }
 };
