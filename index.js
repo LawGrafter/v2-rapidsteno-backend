@@ -9,6 +9,8 @@ const feedbackRoutes = require("./routes/feedbackRoutes");
 const cron = require('node-cron');
 const autoDeactivateUsers = require('./utils/autoDeactivateUsers');
 const newsFeedRoutes = require('./routes/newsFeedRoutes');
+const compareRoutes = require('./routes/compareRoutes');
+
 
 dotenv.config();
 connectDB();
@@ -37,6 +39,8 @@ app.use('/api/admin', adminRoutes); // Prefix all admin routes
 app.use("/api/user/dictationSubmissions", submissionRoutes);
 app.use("/api/feedback", feedbackRoutes);
 app.use("/api/newsfeed", newsFeedRoutes);
+app.use("/api/compare", compareRoutes);
+
 
 // Trust proxy to get correct client IP when behind a reverse proxy (like Nginx, Vercel, etc.)
 app.set('trust proxy', true);
