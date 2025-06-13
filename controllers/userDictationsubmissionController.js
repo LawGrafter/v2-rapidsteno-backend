@@ -120,26 +120,86 @@ exports.deleteUserSubmission = async (req, res) => {
 };
 
 // Update a dictation submission by userId and dictationId
+// exports.updateUserSubmission = async (req, res) => {
+//   try {
+//     const { userId, dictationId } = req.params;
+//     const updateData = req.body;
+
+//       // Optional: Ensure mistakeSummary is structured correctly
+//     if (updateData.mistakeSummary) {
+//       const summary = updateData.mistakeSummary;
+//       updateData.mistakeSummary = {
+//         capitalSpellingMistakes: summary.capitalSpellingMistakes || [],
+//         spellingMistakes: summary.spellingMistakes || [],
+//         extraWords: summary.extraWords || [],
+//         missingWords: summary.missingWords || [],
+//         punctuationMistakes: summary.punctuationMistakes || [],
+//       };
+//     }
+
+//     const updatedSubmission = await UserDictationSubmission.findOneAndUpdate(
+//       { user: userId, dictation: dictationId },
+//       { $set: updateData },
+//       { new: true, runValidators: true }
+//     );
+
+//     if (!updatedSubmission) {
+//       return res.status(404).json({ message: "Submission not found" });
+//     }
+
+//     res.status(200).json({
+//       message: "Submission updated successfully",
+//       data: updatedSubmission,
+//     });
+//   } catch (error) {
+//     console.error("Update Error:", error);
+//     res.status(500).json({ message: "Failed to update submission", error: error.message });
+//   }
+// };
+
 exports.updateUserSubmission = async (req, res) => {
   try {
     const { userId, dictationId } = req.params;
     const updateData = req.body;
 
-      // Optional: Ensure mistakeSummary is structured correctly
-    if (updateData.mistakeSummary) {
-      const summary = updateData.mistakeSummary;
-      updateData.mistakeSummary = {
-        capitalSpellingMistakes: summary.capitalSpellingMistakes || [],
-        spellingMistakes: summary.spellingMistakes || [],
-        extraWords: summary.extraWords || [],
-        missingWords: summary.missingWords || [],
-        punctuationMistakes: summary.punctuationMistakes || [],
-      };
-    }
+    // ✅ Extract mistake details from request body if provided
+    const {
+      accuracy,
+      mistakes,
+      comparisonDetails = {} // ← from frontend WordComparison.jsx
+    } = updateData;
+
+    // ✅ Destructure mistake arrays safely
+    const {
+      capital = [],
+      spelling = [],
+      extra = [],
+      missing = [],
+      punctuation = [],
+      spacing = []
+    } = comparisonDetails;
+
+    // ✅ Prepare final update object
+    const finalUpdate = {
+      accuracy,
+      totalMistakes: mistakes,
+      capitalMistakes: capital.length,
+      spellingMistakes: spelling.length,
+      extraWords: extra.length,
+      missingWords: missing.length,
+      punctuationMistakes: punctuation.length, 
+      mistakeSummary: {
+        capitalSpellingMistakes: capital,
+        spellingMistakes: spelling,
+        extraWords: extra,
+        missingWords: missing,
+        punctuationMistakes: punctuation,
+      }
+    };
 
     const updatedSubmission = await UserDictationSubmission.findOneAndUpdate(
       { user: userId, dictation: dictationId },
-      { $set: updateData },
+      { $set: finalUpdate },
       { new: true, runValidators: true }
     );
 
@@ -156,6 +216,7 @@ exports.updateUserSubmission = async (req, res) => {
     res.status(500).json({ message: "Failed to update submission", error: error.message });
   }
 };
+
 
 exports.getGlobalLeaderboard = async (req, res) => {
   try {
