@@ -3,6 +3,23 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const validator = require('validator');
 
+const PageLogSchema = new mongoose.Schema({
+  page: String,
+  timeSpent: Number,
+  viewCount: { type: Number, default: 1 },
+  deviceType: String,
+  browser: String,
+  os: String,
+  userAgent: String,
+}, { _id: false });
+
+const DailyActivitySchema = new mongoose.Schema({
+  date: { type: String, required: true }, // Format: YYYY-MM-DD
+  pages: [PageLogSchema],
+  totalActiveTime: { type: Number, default: 0 }, // in seconds
+  totalPagesViewed: { type: Number, default: 0 },
+}, { _id: false });
+
 const UserSchema = new mongoose.Schema({
   firstName: { type: String, required: true },
   lastName: { type: String, required: true },
@@ -68,6 +85,12 @@ ipAddress: {
   type: String,
 },
 
+  // ✅ New: Track activity by day and page
+  activityLogs: [DailyActivitySchema],
+  pageViewStats: [{
+  page: String,
+  count: { type: Number, default: 1 }
+}],
 
 
 }, { timestamps: true });
