@@ -11,6 +11,7 @@ const autoDeactivateUsers = require('./utils/autoDeactivateUsers');
 const newsFeedRoutes = require('./routes/newsFeedRoutes');
 const compareRoutes = require('./routes/compareRoutes');
 
+require('./utils/trialExpiryJob'); // <--- ⏳ Run every minute to expire Trial users
 
 dotenv.config();
 connectDB();

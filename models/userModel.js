@@ -19,11 +19,27 @@ const UserSchema = new mongoose.Schema({
   },
   password: { type: String, required: true, minlength: 6 },
   gender: { type: String, required: true, enum: ['Male', 'Female', 'Other'] },
-  subscriptionType: { type: String, enum: ['Free', 'Paid'], default: 'Free' },
+  // subscriptionType: { type: String, enum: ['Free', 'Paid'], default: 'Free' },
+  subscriptionType: {
+  type: String,
+  enum: ['Trial', 'Unpaid', 'Paid'],
+  default: 'Trial'
+},
+
+subscriptionHistory: [{
+  type: { type: String, enum: ['Trial', 'Unpaid', 'Paid'] },
+  startDate: Date,
+  endDate: Date,
+}],
+
   examCategory: { type: String, enum: ['Court Exams', 'SSC & other exams'], default: 'Other' },
   isRepeatUser: { type: Boolean, default: false },
   isActive: { type: Boolean, default: true },
   lastActiveDate: { type: Date, default: Date.now },
+
+    trialExpiresAt: { type: Date },            // ⏳ Trial ends
+  paidUntil: { type: Date },                 // 💰 Paid plan expires
+
 
   otp: { type: String },
 otpExpiresAt: { type: Date },
