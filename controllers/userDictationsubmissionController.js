@@ -267,3 +267,47 @@ exports.getGlobalLeaderboard = async (req, res) => {
     res.status(500).json({ message: "Failed to generate leaderboard", error: error.message });
   }
 };
+
+exports.getDictationSubmissionCounts = async (req, res) => {
+  try {
+    const submissionCounts = await UserDictationSubmission.aggregate([
+      {
+        $group: {
+          _id: "$dictation", // Group by dictation ID
+          count: { $sum: 1 }, // Count submissions
+        }
+      },
+      {
+        $lookup: {
+          from: "dictations", // Match your actual dictation collection name
+          localField: "_id",
+          foreignField: "_id",
+          as: "dictationInfo"
+        }
+      },
+      {
+        $unwind: "$dictationInfo"
+      },
+      {
+        $project: {
+          _id: 0,
+          dictationId: "$dictationInfo._id",
+          dictationTitle: "$dictationInfo.title",
+          dictationType: "$dictationInfo.category",
+          submissionCount: "$count"
+        }
+      },
+      {
+        $sort: { submissionCount: -1 } // Optional: Sort by most attempted
+      }
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: submissionCounts
+    });
+  } catch (error) {
+    console.error("Error fetching dictation submission counts:", error);
+    res.status(500).json({ message: "Failed to fetch dictation submission counts", error: error.message });
+  }
+};
