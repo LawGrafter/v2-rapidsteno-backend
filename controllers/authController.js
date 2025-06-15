@@ -418,6 +418,8 @@ exports.login = async (req, res) => {
       email: user.email,
       phone: user.phone,
       subscriptionType: user.subscriptionType,
+       trialExpiresAt: user.trialExpiresAt || null,
+       paidUntil: user.paidUntil || null,
       createdAt: user.createdAt,
       hasSeenGrowthTour: user.hasSeenGrowthTour || false,
       hasSeenComparisonTour: user.hasSeenComparisonTour || false,
