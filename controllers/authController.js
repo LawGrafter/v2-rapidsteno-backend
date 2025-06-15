@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
+const UAParser = require('ua-parser-js');
 
 // exports.register = async (req, res) => {
 //   try {
@@ -372,23 +373,49 @@ exports.login = async (req, res) => {
     if (!isMatch) return res.status(400).json({ message: 'Invalid email or password' });
 
     // ✅ Auto-expire trial if it's over
-    if (user.subscriptionType === 'Trial' && user.trialExpiresAt && new Date() > user.trialExpiresAt) {
-      user.subscriptionType = 'Unpaid';
-      user.trialExpiresAt = undefined;
-    }
+    // if (user.subscriptionType === 'Trial' && user.trialExpiresAt && new Date() > user.trialExpiresAt) {
+    //   user.subscriptionType = 'Unpaid';
+    //   user.trialExpiresAt = undefined;
+    // }
 
-    // ✅ Auto-expire paid plan after 30 days
-    if (user.subscriptionType === 'Paid' && user.paidUntil && new Date() > user.paidUntil) {
-      user.subscriptionType = 'Unpaid';
-      user.paidUntil = undefined;
-    }
+    // // ✅ Auto-expire paid plan after 30 days
+    // if (user.subscriptionType === 'Paid' && user.paidUntil && new Date() > user.paidUntil) {
+    //   user.subscriptionType = 'Unpaid';
+    //   user.paidUntil = undefined;
+    // }
 
-    // ❌ Block unpaid users from logging in
-    if (user.subscriptionType === 'Unpaid') {
-      return res.status(403).json({
-        message: 'Your free trial or subscription has expired. Please contact admin.'
-      });
-    }
+    // // ❌ Block unpaid users from logging in
+    // if (user.subscriptionType === 'Unpaid') {
+    //   return res.status(403).json({
+    //     message: 'Your free trial or subscription has expired. Please contact admin.'
+    //   });
+    // }
+
+    let updated = false;
+
+if (user.subscriptionType === 'Trial' && user.trialExpiresAt && new Date() > user.trialExpiresAt) {
+  user.subscriptionType = 'Unpaid';
+  user.trialExpiresAt = undefined;
+  updated = true;
+}
+
+if (user.subscriptionType === 'Paid' && user.paidUntil && new Date() > user.paidUntil) {
+  user.subscriptionType = 'Unpaid';
+  user.paidUntil = undefined;
+  updated = true;
+}
+
+// ✅ Save the changes BEFORE blocking login
+if (updated) {
+  await user.save();
+}
+
+// ❌ Block unpaid users from logging in
+if (user.subscriptionType === 'Unpaid') {
+  return res.status(403).json({
+    message: 'Your free trial or subscription has expired. Please contact admin.'
+  });
+}
 
     // ✅ Update session info
     const sessionToken = crypto.randomUUID();
@@ -754,6 +781,125 @@ exports.markNotificationAsSeen = async (req, res) => {
   }
 };
 
+// ✅ Save page activity
+// exports.trackUserActivity = async (req, res) => {
+//   try {
+//     const { userId, page, timeSpent } = req.body;
+//     if (!userId || !page || !timeSpent) {
+//       return res.status(400).json({ message: 'Missing userId, page, or timeSpent' });
+//     }
+
+//     const user = await User.findById(userId);
+//     if (!user) return res.status(404).json({ message: 'User not found' });
+
+//     const userAgent = req.headers['user-agent'] || '';
+//     const parser = new UAParser(userAgent);
+//     const deviceInfo = parser.getResult();
+
+//     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+//     // Find today's log
+//     let todayLog = user.activityLogs.find(log => log.date === today);
+
+//     if (!todayLog) {
+//       todayLog = {
+//         date: today,
+//         totalActiveTime: 0,
+//         totalPagesViewed: 0,
+//         pages: []
+//       };
+//       user.activityLogs.push(todayLog);
+//     }
+
+//     // Update or push page
+//     const pageEntry = todayLog.pages.find(p => p.page === page);
+//     if (pageEntry) {
+//       pageEntry.timeSpent += timeSpent;
+//     } else {
+//       todayLog.pages.push({
+//         page,
+//         timeSpent,
+//         deviceType: deviceInfo.device.type || 'desktop',
+//         browser: deviceInfo.browser.name || 'unknown',
+//         os: deviceInfo.os.name || 'unknown',
+//         userAgent
+//       });
+//     }
+
+//     todayLog.totalActiveTime += timeSpent;
+//     todayLog.totalPagesViewed += 1;
+
+//     await user.save();
+
+//     res.status(200).json({ message: 'Activity logged successfully' });
+
+//   } catch (error) {
+//     console.error('Track Activity Error:', error);
+//     res.status(500).json({ message: 'Failed to track activity', error });
+//   }
+// };
+
+exports.trackUserActivity = async (req, res) => {
+  try {
+    const { userId, page, timeSpent, deviceType, browser, os, userAgent } = req.body;
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const today = new Date().toISOString().split('T')[0];
+    let dailyLog = user.activityLogs.find(log => log.date === today);
+
+    if (!dailyLog) {
+      dailyLog = {
+        date: today,
+        pages: [{
+          page,
+          timeSpent,
+          viewCount: 1,
+          deviceType,
+          browser,
+          os,
+          userAgent
+        }],
+        totalActiveTime: timeSpent,
+        totalPagesViewed: 1
+      };
+      user.activityLogs.push(dailyLog);
+    } else {
+      const pageEntry = dailyLog.pages.find(p => p.page === page);
+      if (pageEntry) {
+        pageEntry.timeSpent += timeSpent;
+        pageEntry.viewCount += 1;
+      } else {
+        dailyLog.pages.push({
+          page,
+          timeSpent,
+          viewCount: 1,
+          deviceType,
+          browser,
+          os,
+          userAgent
+        });
+      }
+      dailyLog.totalActiveTime += timeSpent;
+      dailyLog.totalPagesViewed += 1;
+    }
+
+    // 🔁 Update lifetime pageViewStats
+    const lifetimeStat = user.pageViewStats.find(stat => stat.page === page);
+    if (lifetimeStat) {
+      lifetimeStat.count += 1;
+    } else {
+      user.pageViewStats.push({ page, count: 1 });
+    }
+
+    await user.save();
+    res.status(200).json({ message: "Activity tracked" });
+
+  } catch (err) {
+    console.error("Track activity failed:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 
 // http://localhost:5000/api/admin/mark-paid
 // {
