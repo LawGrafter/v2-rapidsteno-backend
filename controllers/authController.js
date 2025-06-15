@@ -219,7 +219,8 @@ exports.register = async (req, res) => {
       password,
       gender,
       subscriptionType: 'Trial',                          // 👈 Force trial
-      trialExpiresAt: new Date(Date.now() + 5 * 60 * 1000), // 👈 5 minutes from now
+      // trialExpiresAt: new Date(Date.now() + 5 * 60 * 1000), // 👈 5 minutes from now
+      trialExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
       examCategory,
       isActive: true,
       lastActiveDate: new Date(),

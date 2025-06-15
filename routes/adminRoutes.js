@@ -9,6 +9,7 @@ router.post('/login', adminController.adminLogin);
 router.post('/mark-paid', adminController.markUserAsPaid); 
 router.get('/admin/users', adminAuth, adminController.getAllUsers); 
 router.delete('/users/:id', adminAuth, adminController.deleteUserById); // ✅ NEW DELETE API
+router.get('/online-users', adminController.getOnlineUsers);
 
 // Example of protected route
 router.get('/dashboard', adminAuth, (req, res) => {

@@ -15,4 +15,6 @@ router.get('/getbyid/:id', adminProtect, dictationController.getDictationById);
 router.put('/update/:id', adminProtect, dictationController.updateDictation);
 router.delete('/delete/:id', adminProtect, dictationController.deleteDictation);
 
+router.delete('/delete/:id', adminProtect, dictationController.deleteDictation);
+
 module.exports = router;
