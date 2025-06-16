@@ -712,10 +712,16 @@ exports.verifyOtpAndRegister = async (req, res) => {
     examCategory, termConditions, referralCode
   } = req.body;
 
+  // const stored = otpStore[email];
+  // if (!stored || stored.otp !== otp || stored.expiresAt < Date.now()) {
+  //   return res.status(400).json({ message: 'Invalid or expired OTP' });
+  // }
+
   const stored = otpStore[email];
-  if (!stored || stored.otp !== otp || stored.expiresAt < Date.now()) {
-    return res.status(400).json({ message: 'Invalid or expired OTP' });
-  }
+
+if (!stored || stored.otp !== otp || Date.now() > stored.expiresAt) {
+  return res.status(400).json({ message: 'Invalid or expired OTP' });
+}
 
   if (password !== confirmPassword) {
     return res.status(400).json({ message: 'Passwords do not match' });
