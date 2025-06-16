@@ -11,6 +11,9 @@ router.get('/admin/users', adminAuth, adminController.getAllUsers);
 router.delete('/users/:id', adminAuth, adminController.deleteUserById); // ✅ NEW DELETE API
 router.get('/online-users', adminController.getOnlineUsers);
 
+router.post('/login/request-otp', adminController.adminLoginRequestOtp);
+router.post('/login/verify-otp', adminController.adminVerifyOtp);
+
 // Example of protected route
 router.get('/dashboard', adminAuth, (req, res) => {
   res.status(200).json({ message: 'Welcome to Admin Dashboard' });
