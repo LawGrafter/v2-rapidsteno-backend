@@ -13,7 +13,7 @@ const { userProtect } = require("../middleware/userMiddleware");
 const adminProtect = require("../middleware/authMiddleware");
 
 
-router.post("/", adminProtect, submitDictation);
+router.post("/", userProtect, submitDictation);
 router.get("/done/:userId", userProtect, getCompletedDictationSubmissionsByUser);
 router.delete("/:userId/:dictationId", adminProtect, deleteUserSubmission);
 router.put("/:userId/:dictationId", adminProtect, updateUserSubmission); 

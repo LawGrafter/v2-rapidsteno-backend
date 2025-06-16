@@ -190,3 +190,20 @@ exports.getOnlineUsers = async (req, res) => {
     res.status(500).json({ message: 'Server Error', error });
   }
 };
+
+// PUT /api/admin/edit-user/:id
+exports.editUserByAdmin = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const updates = req.body;
+
+    const user = await User.findByIdAndUpdate(userId, updates, { new: true });
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.status(200).json({ message: "User updated successfully", user });
+  } catch (error) {
+    console.error("Admin edit error:", error);
+    res.status(500).json({ message: "Failed to update user", error });
+  }
+};

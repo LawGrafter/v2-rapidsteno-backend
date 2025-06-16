@@ -14,6 +14,8 @@ router.get('/online-users', adminController.getOnlineUsers);
 router.post('/login/request-otp', adminController.adminLoginRequestOtp);
 router.post('/login/verify-otp', adminController.adminVerifyOtp);
 
+router.put('/edit-user/:id', adminAuth, adminController.editUserByAdmin);
+
 // Example of protected route
 router.get('/dashboard', adminAuth, (req, res) => {
   res.status(200).json({ message: 'Welcome to Admin Dashboard' });
