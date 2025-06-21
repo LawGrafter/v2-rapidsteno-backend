@@ -551,6 +551,27 @@ try {
 }
 };
 
+// exports.verifyOtp = async (req, res) => {
+//   try {
+//     const { email, otp } = req.body;
+
+//     const user = await User.findOne({ email });
+//     if (!user || user.otp !== otp || user.otpExpiresAt < new Date()) {
+//       return res.status(400).json({ message: 'Invalid or expired OTP' });
+//     }
+
+//     user.isEmailVerified = true;
+//     user.otp = undefined;
+//     user.otpExpiresAt = undefined;
+//     await user.save();
+
+//     res.status(200).json({ message: 'Email verified successfully. You can now log in.' });
+//   } catch (error) {
+//     res.status(500).json({ message: 'Verification failed', error });
+//   }
+// };
+// userController.js
+
 exports.verifyOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -565,12 +586,53 @@ exports.verifyOtp = async (req, res) => {
     user.otpExpiresAt = undefined;
     await user.save();
 
+    // ✅ START: ADD THIS SECTION TO SEND THE WELCOME EMAIL
+    try {
+      const transporter = nodemailer.createTransport({
+        service: 'Gmail',
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
+
+      // Use the same beautiful HTML template from your other function
+      const welcomeHtml = `
+      <!DOCTYPE html>
+      <html lang="en" style="font-family: Arial, sans-serif;">
+      <head><meta charset="UTF-8"><title>Welcome to Rapid Steno</title></head>
+      <body style="background-color: #f4f6f8; padding: 30px;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 620px; margin: auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.05);">
+          <tr><td style="background-color: #002E2C; text-align: center; padding: 25px 0;"><h2 style="color: #fff; margin: 0;">Welcome to the RapidSteno Family!</h2></td></tr>
+          <tr><td style="padding: 30px 25px 15px;"><h3 style="margin: 0; font-size: 20px; color: #333;">🎉 Thank you for joining us, ${user.firstName}!</h3><p style="font-size: 14px; color: #555;">Your account is now active. Get ready to make your speed faster with unlimited practice. Here's what you can do next:</p></td></tr>
+          <tr><td style="padding: 10px 25px 20px;"><table width="100%" cellspacing="0" cellpadding="0" style="text-align: left;"><tr><td width="50%" style="padding: 10px;"><div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 15px;"><strong>🗣️ Dictation</strong><br><small>Practice with real-time dictation exercises.</small></div></td><td width="50%" style="padding: 10px;"><div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 15px;"><strong>📈 Growth Analysis</strong><br><small>Track your progress with detailed analytics.</small></div></td></tr></table></td></tr>
+          <tr><td style="padding: 20px 25px; background-color: #f9fafb; border-top: 1px solid #e0e0e0; text-align: center;"><p style="font-size: 15px; color: #111; margin: 0;">⏳ <strong>Your Free Trial is Active!</strong></p><p style="font-size: 14px; color: #666; margin: 5px 0 15px;">Explore all premium features for free.</p><a href="https://www.rapidsteno.com" style="display: inline-block; padding: 10px 20px; background-color: #002E2C; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold;">Start Practicing Now</a></td></tr>
+          <tr><td style="text-align: center; padding: 20px; font-size: 13px; color: #888;"><p style="color: #aaa;">© 2025 Rapid Steno. All rights reserved.</p></td></tr>
+        </table>
+      </body>
+      </html>`;
+
+      await transporter.sendMail({
+        from: `Rapid Steno <${process.env.SMTP_USER}>`, // Recommended to use a name
+        to: user.email,
+        subject: 'Welcome to Rapid Steno! Let\'s Get Started.',
+        html: welcomeHtml
+      });
+      console.log(`Welcome email sent successfully to ${user.email}`);
+
+    } catch (emailError) {
+      // Log the email error but don't fail the entire request
+      // The user is already verified, which is the most important part
+      console.error('Failed to send welcome email:', emailError);
+    }
+    // ✅ END: ADD THIS SECTION
+
     res.status(200).json({ message: 'Email verified successfully. You can now log in.' });
+
   } catch (error) {
     res.status(500).json({ message: 'Verification failed', error });
   }
 };
-
 
 // ✅ Send Reset Password Link
 exports.forgotPassword = async (req, res) => {
@@ -705,17 +767,242 @@ exports.sendOtp = async (req, res) => {
 };
 
 
+// exports.verifyOtpAndRegister = async (req, res) => {
+//   const {
+//     email, otp, firstName, lastName, phone,
+//     password, confirmPassword, gender, subscriptionType,
+//     examCategory, termConditions, referralCode
+//   } = req.body;
+
+//   // const stored = otpStore[email];
+//   // if (!stored || stored.otp !== otp || stored.expiresAt < Date.now()) {
+//   //   return res.status(400).json({ message: 'Invalid or expired OTP' });
+//   // }
+
+//   const stored = otpStore[email];
+
+// if (!stored || stored.otp !== otp || Date.now() > stored.expiresAt) {
+//   return res.status(400).json({ message: 'Invalid or expired OTP' });
+// }
+
+//   if (password !== confirmPassword) {
+//     return res.status(400).json({ message: 'Passwords do not match' });
+//   }
+
+//   const user = new User({
+//     firstName,
+//     lastName,
+//     email,
+//     phone,
+//     password,
+//     gender,
+//     // subscriptionType,
+//     subscriptionType: 'Trial',
+// trialExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 5-minute trial
+
+//     examCategory,
+//     isActive: true,
+//     isEmailVerified: true,
+//     referralCode,
+//     termConditions,
+//     lastActiveDate: new Date(),
+//     ipAddress: req.headers['x-forwarded-for'] || req.socket.remoteAddress
+//   });
+
+//   await user.save();
+//   delete otpStore[email];
+
+//   res.status(201).json({ message: 'User registered successfully' });
+// };
+
+
+// // In your user controller
+exports.markTourAsSeen = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    user.hasSeenTour = true;
+    await user.save();
+
+    res.status(200).json({ message: 'Tour marked as seen' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update tour status', error });
+  }
+};
+
+// exports.markTourAsSeen = async (req, res) => {
+//   try {
+//     const user = await User.findById(req.params.id);
+//     if (!user) return res.status(404).json({ message: 'User not found' });
+
+//     user.hasSeenTour = true;
+//     await user.save();
+    
+
+//     res.status(200).json({ message: 'Tour marked as seen' });
+//   } catch (error) {
+//     res.status(500).json({ message: 'Failed to update tour status', error });
+//   }
+// };
+
+// exports.verifyOtpAndRegister = async (req, res) => {
+//   const {
+//     email, otp, firstName, lastName, phone,
+//     password, confirmPassword, gender,
+//     examCategory, termConditions, referralCode
+//   } = req.body;
+
+//   const stored = otpStore[email];
+
+//   if (!stored || stored.otp !== otp || Date.now() > stored.expiresAt) {
+//     return res.status(400).json({ message: 'Invalid or expired OTP' });
+//   }
+
+//   if (password !== confirmPassword) {
+//     return res.status(400).json({ message: 'Passwords do not match' });
+//   }
+
+//   const user = new User({
+//     firstName,
+//     lastName,
+//     email,
+//     phone,
+//     password,
+//     gender,
+//     subscriptionType: 'Trial',
+//     trialExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+//     examCategory,
+//     isActive: true,
+//     isEmailVerified: true,
+//     referralCode,
+//     termConditions,
+//     lastActiveDate: new Date(),
+//     ipAddress: req.headers['x-forwarded-for'] || req.socket.remoteAddress
+//   });
+
+//   await user.save();
+//   delete otpStore[email];
+
+//   // ✅ Send Welcome Email
+//   const transporter = nodemailer.createTransport({
+//     service: 'Gmail',
+//     auth: {
+//       user: process.env.SMTP_USER,
+//       pass: process.env.SMTP_PASS,
+//     },
+//   });
+
+//   const welcomeHtml = `
+//   <!DOCTYPE html>
+// <html lang="en" style="font-family: Arial, sans-serif;">
+// <head>
+//   <meta charset="UTF-8">
+//   <title>Welcome to Rapid Steno</title>
+// </head>
+// <body style="background-color: #f4f6f8; padding: 30px;">
+//   <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 620px; margin: auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.05);">
+//     <!-- Header -->
+//     <tr>
+//       <td style="background-color: #002E2C; text-align: center; padding: 25px 0;">
+//         <h2 style="color: #fff; margin: 0;">RAPID STENO</h2>
+//         <p style="color: #cfd8dc; font-size: 14px; margin: 4px 0;">Professional Stenography Training</p>
+//       </td>
+//     </tr>
+
+//     <!-- Title -->
+//     <tr>
+//       <td style="padding: 30px 25px 15px;">
+//         <h3 style="margin: 0; font-size: 20px; color: #333;">🎉 Registration Successful!</h3>
+//         <p style="font-size: 14px; color: #555;">
+//           Welcome to Rapid Steno! Your account has been successfully created. You can now start working on the following sections to enhance your stenography skills.
+//         </p>
+//       </td>
+//     </tr>
+
+//     <!-- Feature Cards -->
+//     <tr>
+//       <td style="padding: 10px 25px 20px;">
+//         <table width="100%" cellspacing="0" cellpadding="0" style="text-align: left;">
+//           <tr>
+//             <td width="50%" style="padding: 10px;">
+//               <div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 15px;">
+//                 <strong>🗣️ Dictation</strong><br>
+//                 <small>Practice with real-time dictation exercises at various speeds to improve your stenography skills.</small>
+//               </div>
+//             </td>
+//             <td width="50%" style="padding: 10px;">
+//               <div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 15px;">
+//                 <strong>📈 Growth Analysis</strong><br>
+//                 <small>Track your progress over time with detailed analytics and performance metrics.</small>
+//               </div>
+//             </td>
+//           </tr>
+//           <tr>
+//             <td width="50%" style="padding: 10px;">
+//               <div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 15px;">
+//                 <strong>📚 Self Practice</strong><br>
+//                 <small>Access a library of practice materials to hone your skills at your own pace.</small>
+//               </div>
+//             </td>
+//             <td width="50%" style="padding: 10px;">
+//               <div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 15px;">
+//                 <strong>📄 Reports</strong><br>
+//                 <small>Generate comprehensive reports on your accuracy, speed, and overall performance.</small>
+//               </div>
+//             </td>
+//           </tr>
+//         </table>
+//       </td>
+//     </tr>
+
+//     <!-- Trial Info -->
+//     <tr>
+//       <td style="padding: 20px 25px; background-color: #f9fafb; border-top: 1px solid #e0e0e0; text-align: center;">
+//         <p style="font-size: 15px; color: #111; margin: 0;">⏳ <strong>Your Free Trial is Active!</strong></p>
+//         <p style="font-size: 14px; color: #666; margin: 5px 0 15px;">
+//           You have <strong>15 days</strong> of free access to all premium features.
+//           After your trial ends, subscribe to our monthly plan to continue your stenography journey with Rapid Steno.
+//         </p>
+//         <a href="https://www.rapidsteno.com/plans" style="display: inline-block; padding: 10px 20px; background-color: #002E2C; color: #fff; text-decoration: none; border-radius: 5px; font-weight: bold;">View Subscription Plans</a>
+//       </td>
+//     </tr>
+
+//     <!-- Footer -->
+//     <tr>
+//       <td style="text-align: center; padding: 20px; font-size: 13px; color: #888;">
+//         <p>Connect with us on social media:</p>
+//         <p style="margin: 10px 0;">
+//           <a href="#" style="margin: 0 8px; text-decoration: none;">📷 Instagram</a>
+//           <a href="#" style="margin: 0 8px; text-decoration: none;">📘 Facebook</a>
+//           <a href="#" style="margin: 0 8px; text-decoration: none;">🐦 Twitter</a>
+//         </p>
+//         <p style="color: #aaa;">© 2025 Rapid Steno. All rights reserved.</p>
+//         <p style="color: #bbb;">If you have any questions, please contact our support team at <a href="mailto:support@rapidsteno.com">support@rapidsteno.com</a>.</p>
+//       </td>
+//     </tr>
+//   </table>
+// </body>
+// </html>
+
+//   `;
+
+//   await transporter.sendMail({
+//     from: process.env.SMTP_USER,
+//     to: email,
+//     subject: 'Welcome to Rapid Steno!',
+//     html: welcomeHtml
+//   });
+
+//   res.status(201).json({ message: 'User registered successfully' });
+// };
+
 exports.verifyOtpAndRegister = async (req, res) => {
   const {
     email, otp, firstName, lastName, phone,
     password, confirmPassword, gender, subscriptionType,
     examCategory, termConditions, referralCode
   } = req.body;
-
-  // const stored = otpStore[email];
-  // if (!stored || stored.otp !== otp || stored.expiresAt < Date.now()) {
-  //   return res.status(400).json({ message: 'Invalid or expired OTP' });
-  // }
 
   const stored = otpStore[email];
 
@@ -750,23 +1037,14 @@ trialExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 5-minute trial
   await user.save();
   delete otpStore[email];
 
-  res.status(201).json({ message: 'User registered successfully' });
-};
 
-
-// In your user controller
-exports.markTourAsSeen = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    user.hasSeenTour = true;
-    await user.save();
-
-    res.status(200).json({ message: 'Tour marked as seen' });
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to update tour status', error });
+    await sendWelcomeEmail(email, firstName);
+  } catch (err) {
+    console.error("❌ Failed to send welcome email:", err.message);
   }
+
+  res.status(201).json({ message: 'User registered successfully' });
 };
 
 

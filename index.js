@@ -10,6 +10,7 @@ const cron = require('node-cron');
 const autoDeactivateUsers = require('./utils/autoDeactivateUsers');
 const newsFeedRoutes = require('./routes/newsFeedRoutes');
 const compareRoutes = require('./routes/compareRoutes');
+const pitmanRoutes = require('./routes/pitmanExerciseRoutes');
 
 require('./utils/trialExpiryJob'); // <--- ⏳ Run every minute to expire Trial users
 
@@ -41,6 +42,7 @@ app.use("/api/user/dictationSubmissions", submissionRoutes);
 app.use("/api/feedback", feedbackRoutes);
 app.use("/api/newsfeed", newsFeedRoutes);
 app.use("/api/compare", compareRoutes);
+app.use('/api/pitmanExercises', pitmanRoutes);
 
 
 // Trust proxy to get correct client IP when behind a reverse proxy (like Nginx, Vercel, etc.)
