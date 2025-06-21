@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const UAParser = require('ua-parser-js');
+const sendWelcomeEmail = require('../utils/sendWelcomeEmail');
 
 // exports.register = async (req, res) => {
 //   try {
@@ -525,6 +526,30 @@ try {
 }
 };
 
+// controllers/userController.js or authController.js
+exports.getSelfUserById = async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    // Ensure the logged-in user is fetching their own data
+    if (req.user._id.toString() !== userId) {
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+
+    const user = await User.findById(userId).select(
+      '_id hasSeenGrowthTour hasSeenComparisonTour'
+    );
+
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    res.status(200).json(user);
+  } catch (error) {
+    console.error("Fetch Self User by ID Error:", error);
+    res.status(500).json({ message: 'Server Error', error });
+  }
+};
+
+
 // ✅ Delete All Users
 exports.deleteAllUsers = async (req, res) => {
 try {
@@ -817,12 +842,25 @@ exports.sendOtp = async (req, res) => {
 
 
 // // In your user controller
+// exports.markTourAsSeen = async (req, res) => {
+//   try {
+//     const user = await User.findById(req.params.id);
+//     if (!user) return res.status(404).json({ message: 'User not found' });
+
+//     user.hasSeenTour = true;
+//     await user.save();
+
+//     res.status(200).json({ message: 'Tour marked as seen' });
+//   } catch (error) {
+//     res.status(500).json({ message: 'Failed to update tour status', error });
+//   }
+// };
 exports.markTourAsSeen = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    user.hasSeenTour = true;
+    user.hasSeenGrowthTour = true; // ✅ Correct field
     await user.save();
 
     res.status(200).json({ message: 'Tour marked as seen' });
@@ -830,6 +868,25 @@ exports.markTourAsSeen = async (req, res) => {
     res.status(500).json({ message: 'Failed to update tour status', error });
   }
 };
+
+exports.markComparisonTourAsSeen = async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    // Ensure user can only update their own record
+    if (req.user._id.toString() !== userId) {
+      return res.status(403).json({ message: "Unauthorized access" });
+    }
+
+    await User.findByIdAndUpdate(userId, { hasSeenComparisonTour: true });
+
+    res.status(200).json({ message: "Comparison tour marked as seen" });
+  } catch (error) {
+    console.error("Error marking comparison tour as seen:", error);
+    res.status(500).json({ message: "Server Error", error });
+  }
+};
+
 
 // exports.markTourAsSeen = async (req, res) => {
 //   try {

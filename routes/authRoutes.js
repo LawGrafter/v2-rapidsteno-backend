@@ -6,22 +6,26 @@ const {
   getAllUsers,
   getFilteredUsers,
   getUserById,
+  getSelfUserById,
   deleteUserById,
   deleteAllUsers,
   // forgotPassword
 } = require('../controllers/authController');
 
-const { verifyOtp, trackUserActivity, forgotPassword, resetPassword, sendOtp, markTourAsSeen, markNotificationAsSeen, verifyOtpAndRegister } = require("../controllers/authController");
+const { verifyOtp, trackUserActivity, forgotPassword, resetPassword, sendOtp, markTourAsSeen, markComparisonTourAsSeen, markNotificationAsSeen, verifyOtpAndRegister } = require("../controllers/authController");
 const { userProtect } = require("../middleware/userMiddleware");
 const checkUserActivity = require('../middleware/checkUserActivity');
 const adminProtect = require("../middleware/authMiddleware");
+const { getSourceUrlComment } = require('puppeteer');
 
 const router = express.Router();
 
 router.post('/send-otp', sendOtp);
 router.post('/verify-otp-register', verifyOtpAndRegister);
 
-router.put('/users/:id/mark-tour-seen', markTourAsSeen);
+router.put('/users/:id/mark-tour-seen', userProtect, markTourAsSeen);
+router.put('/users/:id/mark-comparison-tour-seen', userProtect, markComparisonTourAsSeen);
+
 router.put('/users/:userId/mark-notification-seen/:notificationId', markNotificationAsSeen);
 
 router.post('/track-activity', trackUserActivity);
@@ -41,6 +45,8 @@ router.get('/users/filter', adminProtect, getFilteredUsers);
 
 // ✅ Get user by ID
 router.get('/users/:id', adminProtect, getUserById);
+
+router.get('/check-user-tour/:id', userProtect, getSelfUserById);
 
 // ✅ Delete a single user
 router.delete('/users/:id', adminProtect, deleteUserById);
