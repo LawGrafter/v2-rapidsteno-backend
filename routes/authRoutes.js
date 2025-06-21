@@ -9,6 +9,7 @@ const {
   getSelfUserById,
   deleteUserById,
   deleteAllUsers,
+  updateUserProfile,
   // forgotPassword
 } = require('../controllers/authController');
 
@@ -27,6 +28,8 @@ router.put('/users/:id/mark-tour-seen', userProtect, markTourAsSeen);
 router.put('/users/:id/mark-comparison-tour-seen', userProtect, markComparisonTourAsSeen);
 
 router.put('/users/:userId/mark-notification-seen/:notificationId', markNotificationAsSeen);
+
+router.put('/update-profile/:id', userProtect, updateUserProfile);
 
 router.post('/track-activity', trackUserActivity);
 

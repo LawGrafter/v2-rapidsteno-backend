@@ -27,6 +27,11 @@ const dictationSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  withPunctuation: {
+  type: Boolean,
+  default: false,
+},
+
 }, {
   timestamps: true,
 });

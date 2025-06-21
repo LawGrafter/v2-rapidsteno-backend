@@ -1247,3 +1247,42 @@ exports.trackUserActivity = async (req, res) => {
 // {
 //   "userId": "PUT_USER_ID_HERE"
 // }
+
+
+// PUT /api/user/update-profile/:id
+exports.updateUserProfile = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const { firstName, lastName, email, gender, mobileNumber } = req.body;
+
+    // Only the user can update their own profile
+    if (req.user._id.toString() !== userId) {
+      return res.status(403).json({ message: "Unauthorized access" });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // Update fields if they are provided
+    if (firstName) user.firstName = firstName;
+    if (lastName) user.lastName = lastName;
+    if (email && email !== user.email) {
+      // Check if email is already taken
+      const existing = await User.findOne({ email });
+      if (existing && existing._id.toString() !== userId) {
+        return res.status(400).json({ message: 'Email already in use' });
+      }
+      user.email = email;
+      user.isEmailVerified = false; // Reset email verification
+    }
+    if (gender) user.gender = gender;
+    if (mobileNumber) user.phone = mobileNumber;
+
+    await user.save();
+
+    res.status(200).json({ message: "Profile updated successfully", user });
+  } catch (error) {
+    console.error("Update profile error:", error);
+    res.status(500).json({ message: "Server Error", error });
+  }
+};

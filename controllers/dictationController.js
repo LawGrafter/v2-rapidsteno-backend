@@ -30,7 +30,7 @@ exports.uploadDictation = (req, res) => {
       return res.status(400).json({ success: false, message: 'MP3 file is required' });
     }
 
-    const { title, category, paragraphText, totalwords, speed } = req.body;
+    const { title, category, paragraphText, totalwords, speed, withPunctuation } = req.body;
 
     if (!title || !category || !paragraphText || !totalwords || !speed) {
       fs.unlinkSync(req.file.path);
@@ -59,6 +59,7 @@ exports.uploadDictation = (req, res) => {
             paragraphText,
             totalwords: Number(totalwords),
             speed: Number(speed),
+            withPunctuation: withPunctuation === 'true' || withPunctuation === true, 
           });
 
           await dictation.save();
@@ -118,8 +119,8 @@ exports.updateDictation = (req, res) => {
       return res.status(400).json({ success: false, message: uploadErr.message });
     }
 
-    const { title, category, paragraphText, totalwords, speed } = req.body;
-    const updateFields = { title, category, paragraphText, totalwords, speed };
+    const { title, category, paragraphText, totalwords, speed, withPunctuation } = req.body;
+    const updateFields = { title, category, paragraphText, totalwords, speed,   withPunctuation: withPunctuation === 'true' || withPunctuation === true };
 
     try {
       if (req.file) {
