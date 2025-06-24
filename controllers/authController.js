@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const UAParser = require('ua-parser-js');
 const sendWelcomeEmail = require('../utils/sendWelcomeEmail');
+const notifyAdminOfRegistration = require('../utils/sendAdminNotification');
 
 // exports.register = async (req, res) => {
 //   try {
@@ -1100,6 +1101,13 @@ trialExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 5-minute trial
 
   try {
     await sendWelcomeEmail(email, firstName);
+
+    try {
+  await notifyAdminOfRegistration(user);
+} catch (err) {
+  console.error("❌ Failed to send admin notification:", err.message);
+}
+
   } catch (err) {
     console.error("❌ Failed to send welcome email:", err.message);
   }
