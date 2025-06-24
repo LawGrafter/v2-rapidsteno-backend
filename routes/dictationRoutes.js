@@ -10,6 +10,11 @@ const adminProtect = require("../middleware/authMiddleware");
 router.post('/upload', dictationController.uploadDictation);
 
 router.get('/get', userProtect, dictationController.getAllDictations);
+
+// ✅ Admin route: requires only admin token
+router.get('/admin/get', adminProtect, dictationController.getAllDictations);
+
+
 router.get('/audio/:id', userProtect, dictationController.getAudioById);
 router.get('/getbyid/:id', adminProtect, dictationController.getDictationById);
 router.put('/update/:id', adminProtect, dictationController.updateDictation);
