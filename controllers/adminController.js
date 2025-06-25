@@ -147,7 +147,8 @@ exports.markUserAsPaid = async (req, res) => {
 
     const now = new Date();
    // const paidUntil = new Date(now.getTime() + 5 * 60 * 1000); // 5 minutes from now
-   const paidUntil = new Date(now.getTime() + 48 * 60 * 60 * 1000); // 48 hours from now
+   //const paidUntil = new Date(now.getTime() + 48 * 60 * 60 * 1000); // 48 hours from now
+const paidUntil = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days from now
 
     user.subscriptionType = 'Paid';
     user.paidUntil = paidUntil;

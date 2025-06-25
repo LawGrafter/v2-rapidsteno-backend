@@ -11,7 +11,7 @@ const dictationSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['Court', 'SSC', 'Railway', 'KC', 'Progressive', 'Medical', 'AIIMS','Other'],
+    enum: ['Court', 'SSC', 'speed-booster', 'Railway', 'KC', 'Progressive', 'Medical', 'AIIMS','Other'],
     default: 'Other',
     required: true,
   },
