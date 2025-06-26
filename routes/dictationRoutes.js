@@ -14,6 +14,8 @@ router.get('/get', userProtect, dictationController.getAllDictations);
 // ✅ Admin route: requires only admin token
 router.get('/admin/get', adminProtect, dictationController.getAllDictations);
 
+// 🎧 Admin route to get audio
+router.get('/admin/audio/:id', adminProtect, dictationController.getAudioById);
 
 router.get('/audio/:id', userProtect, dictationController.getAudioById);
 router.get('/getbyid/:id', adminProtect, dictationController.getDictationById);

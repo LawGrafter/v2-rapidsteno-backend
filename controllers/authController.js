@@ -187,7 +187,8 @@ exports.register = async (req, res) => {
       gender,
       examCategory,
       termConditions,
-      referralCode
+      referralCode,
+      state,
     } = req.body;
 
     // ✅ Step 2: Validate terms acceptance
@@ -235,6 +236,7 @@ trialExpiresAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), // 👈 15 days
       termConditions,
       referralCode,
       ipAddress: ip,
+      state,
     });
 
     await user.save();
@@ -1084,8 +1086,8 @@ if (!stored || stored.otp !== otp || Date.now() > stored.expiresAt) {
     gender,
     // subscriptionType,
     subscriptionType: 'Trial',
-trialExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 5-minute trial
-
+// trialExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 5-minute trial
+trialExpiresAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
     examCategory,
     isActive: true,
     isEmailVerified: true,

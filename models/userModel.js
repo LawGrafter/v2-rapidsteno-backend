@@ -57,7 +57,11 @@ subscriptionHistory: [{
     trialExpiresAt: { type: Date },            // ⏳ Trial ends
   paidUntil: { type: Date },                 // 💰 Paid plan expires
 
-
+ state: {
+    type: String,
+    default: ""
+  },
+  
   otp: { type: String },
 otpExpiresAt: { type: Date },
 isEmailVerified: { type: Boolean, default: false },
