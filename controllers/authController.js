@@ -1100,6 +1100,20 @@ trialExpiresAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
   await user.save();
   delete otpStore[email];
 
+  // ✅ Add to Brevo CRM List
+const { addToBrevoList } = require('../utils/brevo');
+try {
+  await addToBrevoList({
+    email: user.email,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    phone: user.phone
+  });
+  console.log(`✅ Brevo: ${user.email} added to CRM`);
+} catch (err) {
+  console.error("❌ Brevo Sync Failed:", err.message);
+}
+
 
   try {
     await sendWelcomeEmail(email, firstName);
