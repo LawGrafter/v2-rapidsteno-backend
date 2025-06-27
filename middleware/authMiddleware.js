@@ -51,6 +51,7 @@
 // };
 const jwt = require('jsonwebtoken');
 const SECRET_KEY = process.env.JWT_SECRET;
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL; 
 
 module.exports = (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -65,9 +66,16 @@ module.exports = (req, res, next) => {
     const decoded = jwt.verify(token, SECRET_KEY);
 
     const { adminEmail } = require('../models/adminModel');
-    if (decoded.email !== adminEmail) {
+    // if (decoded.email !== adminEmail) {
+    //   return res.status(403).json({ message: 'Access Denied: Not an admin token' });
+    // }
+    
+
+    // ✅ Check if token email matches allowed admin email
+    if (decoded.email !== ADMIN_EMAIL) {
       return res.status(403).json({ message: 'Access Denied: Not an admin token' });
     }
+
 
     req.admin = decoded;
     next();

@@ -1,24 +1,80 @@
+// const express = require('express');
+// const router = express.Router();
+// const adminController = require('../controllers/adminController');
+// //const authMiddleware = require('../middleware/authMiddleware');
+// const adminAuth = require('../middleware/authMiddleware'); // Middleware to validate admin token
+
+// // Login route
+// router.post('/login', adminController.adminLogin);
+// router.post('/mark-paid', adminController.markUserAsPaid); 
+// router.get('/admin/users', adminAuth, adminController.getAllUsers); 
+// router.delete('/users/:id', adminAuth, adminController.deleteUserById); // ✅ NEW DELETE API
+// router.get('/online-users', adminController.getOnlineUsers);
+
+// router.post('/login/request-otp', adminController.adminLoginRequestOtp);
+// router.post('/login/verify-otp', adminController.adminVerifyOtp);
+
+// router.put('/edit-user/:id', adminAuth, adminController.editUserByAdmin);
+
+// // Example of protected route
+// router.get('/dashboard', adminAuth, (req, res) => {
+//   res.status(200).json({ message: 'Welcome to Admin Dashboard' });
+// });
+
+// module.exports = router;
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
-//const authMiddleware = require('../middleware/authMiddleware');
-const adminAuth = require('../middleware/authMiddleware'); // Middleware to validate admin token
+const adminAuth = require('../middleware/authMiddleware');
+const User = require('../models/userModel'); // ✅ Make sure this is imported
 
-// Login route
+
+// ✅ Admin Login Routes
 router.post('/login', adminController.adminLogin);
-router.post('/mark-paid', adminController.markUserAsPaid); 
-router.get('/admin/users', adminAuth, adminController.getAllUsers); 
-router.delete('/users/:id', adminAuth, adminController.deleteUserById); // ✅ NEW DELETE API
-router.get('/online-users', adminController.getOnlineUsers);
-
 router.post('/login/request-otp', adminController.adminLoginRequestOtp);
 router.post('/login/verify-otp', adminController.adminVerifyOtp);
 
-router.put('/edit-user/:id', adminAuth, adminController.editUserByAdmin);
 
-// Example of protected route
+// ✅ Admin Protected Routes
+router.post('/mark-paid', adminController.markUserAsPaid);
+router.get('/admin/users', adminAuth, adminController.getAllUsers);
+router.delete('/users/:id', adminAuth, adminController.deleteUserById);
+router.put('/edit-user/:id', adminAuth, adminController.editUserByAdmin);
+router.get('/online-users', adminController.getOnlineUsers);
+
+
+// ✅ NEW: Get user by email
+router.get('/user-by-email/:email', adminAuth, async (req, res) => {
+  try {
+    const email = req.params.email;
+
+
+    const user = await User.findOne({
+      email: { $regex: new RegExp(`^${email}$`, 'i') } // case-insensitive match
+    });
+
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+
+    res.status(200).json(user);
+  } catch (error) {
+    console.error('Error fetching user by email:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+
+// ✅ Test Dashboard Route
 router.get('/dashboard', adminAuth, (req, res) => {
   res.status(200).json({ message: 'Welcome to Admin Dashboard' });
 });
+
+
+
+
+
 
 module.exports = router;
