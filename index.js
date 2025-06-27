@@ -11,6 +11,7 @@ const autoDeactivateUsers = require('./utils/autoDeactivateUsers');
 const newsFeedRoutes = require('./routes/newsFeedRoutes');
 const compareRoutes = require('./routes/compareRoutes');
 const pitmanRoutes = require('./routes/pitmanExerciseRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
 
 require('./utils/trialExpiryJob'); // <--- ⏳ Run every minute to expire Trial users
 
@@ -43,6 +44,7 @@ app.use("/api/feedback", feedbackRoutes);
 app.use("/api/newsfeed", newsFeedRoutes);
 app.use("/api/compare", compareRoutes);
 app.use('/api/pitmanExercises', pitmanRoutes);
+app.use('/api/payments', paymentRoutes);
 
 
 // Trust proxy to get correct client IP when behind a reverse proxy (like Nginx, Vercel, etc.)
