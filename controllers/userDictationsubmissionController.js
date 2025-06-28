@@ -311,3 +311,127 @@ exports.getDictationSubmissionCounts = async (req, res) => {
     res.status(500).json({ message: "Failed to fetch dictation submission counts", error: error.message });
   }
 };
+
+
+// exports.getUserDictationStats = async (req, res) => {
+//   try {
+//     const stats = await UserDictationSubmission.aggregate([
+//       {
+//         $group: {
+//           _id: { user: "$user", dictation: "$dictation" },
+//           count: { $sum: 1 }
+//         }
+//       },
+//       {
+//         $group: {
+//           _id: "$_id.user",
+//           dictations: {
+//             $push: {
+//               dictationId: "$_id.dictation",
+//               submissions: "$count"
+//             }
+//           },
+//           totalSubmissions: { $sum: "$count" }
+//         }
+//       },
+//       {
+//         $lookup: {
+//           from: "users",
+//           localField: "_id",
+//           foreignField: "_id",
+//           as: "userInfo"
+//         }
+//       },
+//       {
+//         $unwind: "$userInfo"
+//       },
+//       {
+//         $lookup: {
+//           from: "dictations",
+//           localField: "dictations.dictationId",
+//           foreignField: "_id",
+//           as: "dictationInfo"
+//         }
+//       },
+//       {
+//         $project: {
+//           userId: "$_id",
+//           name: { $concat: ["$userInfo.firstName", " ", "$userInfo.lastName"] },
+//           email: "$userInfo.email",
+//           totalSubmissions: 1,
+//           dictations: {
+//             $map: {
+//               input: "$dictations",
+//               as: "d",
+//               in: {
+//                 dictationId: "$$d.dictationId",
+//                 title: {
+//                   $arrayElemAt: [
+//                     {
+//                       $filter: {
+//                         input: "$dictationInfo",
+//                         as: "di",
+//                         cond: { $eq: ["$$di._id", "$$d.dictationId"] }
+//                       }
+//                     },
+//                     0
+//                   ]
+//                 },
+//                 submissions: "$$d.submissions"
+//               }
+//             }
+//           }
+//         }
+//       },
+//       {
+//         $sort: { totalSubmissions: -1 }
+//       }
+//     ]);
+
+//     res.status(200).json({ success: true, data: stats });
+//   } catch (error) {
+//     console.error("Error in getUserDictationStats:", error);
+//     res.status(500).json({ message: "Failed to get user dictation stats", error: error.message });
+//   }
+// };
+exports.getUserDictationStats = async (req, res) => {
+  try {
+    const submissions = await UserDictationSubmission.find()
+      .populate("user", "firstName lastName email")
+      .populate("dictation", "title category") // optional: can also include paragraphText/audioUrl
+      .sort({ submittedAt: -1 });
+
+    const result = submissions.map((sub) => ({
+      submissionId: sub._id,
+      submittedAt: sub.submittedAt,
+      userId: sub.user?._id || null,
+      name: sub.user ? `${sub.user.firstName} ${sub.user.lastName}` : null,
+      email: sub.user?.email || null,
+      dictationId: sub.dictation?._id || null,
+      dictationTitle: sub.dictationTitle || sub.dictation?.title || "Untitled",
+      dictationType: sub.dictationType || sub.dictation?.category || "Unknown",
+      userTypeParagraph: sub.userTypeParagraph,
+      accuracy: sub.accuracy,
+      totalMistakes: sub.totalMistakes,
+      capitalMistakes: sub.capitalMistakes,
+      spellingMistakes: sub.spellingMistakes,
+      extraWords: sub.extraWords,
+      missingWords: sub.missingWords,
+      playbackSpeed: sub.playbackSpeed,
+      typingTimer: sub.typingTimer,
+      mistakeSummary: sub.mistakeSummary,
+    }));
+
+    res.status(200).json({
+      success: true,
+      count: result.length,
+      data: result
+    });
+  } catch (error) {
+    console.error("Error fetching detailed user submissions:", error);
+    res.status(500).json({
+      message: "Failed to fetch submissions",
+      error: error.message,
+    });
+  }
+};

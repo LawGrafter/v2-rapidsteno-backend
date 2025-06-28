@@ -8,6 +8,7 @@ const {
   deleteUserSubmission,
   getGlobalLeaderboard,
 getDictationSubmissionCounts,
+getUserDictationStats,
 } = require("../controllers/userDictationsubmissionController");
 const { userProtect } = require("../middleware/userMiddleware");
 const adminProtect = require("../middleware/authMiddleware");
@@ -19,6 +20,6 @@ router.delete("/:userId/:dictationId", userProtect, deleteUserSubmission);
 router.put("/:userId/:dictationId", userProtect, updateUserSubmission); 
 router.get("/leaderboard", userProtect, getGlobalLeaderboard);
 router.get("/dictation-submission-counts", adminProtect, getDictationSubmissionCounts);
-
+router.get("/user-dictation-stats", getUserDictationStats);
 
 module.exports = router;
