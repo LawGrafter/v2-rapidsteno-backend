@@ -6,6 +6,8 @@ const nodemailer = require('nodemailer');
 const UAParser = require('ua-parser-js');
 const sendWelcomeEmail = require('../utils/sendWelcomeEmail');
 const notifyAdminOfRegistration = require('../utils/sendAdminNotification');
+const { addToBrevoList } = require('../utils/brevo');
+
 
 // exports.register = async (req, res) => {
 //   try {
@@ -1060,75 +1062,164 @@ exports.markComparisonTourAsSeen = async (req, res) => {
 //   res.status(201).json({ message: 'User registered successfully' });
 // };
 
+// exports.verifyOtpAndRegister = async (req, res) => {
+//   const {
+//     email, otp, firstName, lastName, phone,
+//     password, confirmPassword, gender, subscriptionType,
+//     examCategory, termConditions, referralCode
+//   } = req.body;
+
+//   const stored = otpStore[email];
+
+// if (!stored || stored.otp !== otp || Date.now() > stored.expiresAt) {
+//   return res.status(400).json({ message: 'Invalid or expired OTP' });
+// }
+
+//   if (password !== confirmPassword) {
+//     return res.status(400).json({ message: 'Passwords do not match' });
+//   }
+
+//   const user = new User({
+//     firstName,
+//     lastName,
+//     email,
+//     phone,
+//     password,
+//     gender,
+//     // subscriptionType,
+//     subscriptionType: 'Trial',
+// // trialExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 5-minute trial
+// trialExpiresAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
+//     examCategory,
+//     isActive: true,
+//     isEmailVerified: true,
+//     referralCode,
+//     termConditions,
+//     lastActiveDate: new Date(),
+//     ipAddress: req.headers['x-forwarded-for'] || req.socket.remoteAddress
+//   });
+
+//   await user.save();
+//   delete otpStore[email];
+
+//   // ✅ Add to Brevo CRM List
+// const { addToBrevoList } = require('../utils/brevo');
+// try {
+//   await addToBrevoList({
+//     email: user.email,
+//     firstName: user.firstName,
+//     lastName: user.lastName,
+//     phone: user.phone
+//   });
+//   console.log(`✅ Brevo: ${user.email} added to CRM`);
+// } catch (err) {
+//   console.error("❌ Brevo Sync Failed:", err.message);
+// }
+
+
+//   try {
+//     await sendWelcomeEmail(email, firstName);
+
+//     try {
+//   await notifyAdminOfRegistration(user);
+// } catch (err) {
+//   console.error("❌ Failed to send admin notification:", err.message);
+// }
+
+//   } catch (err) {
+//     console.error("❌ Failed to send welcome email:", err.message);
+//   }
+
+//   res.status(201).json({ message: 'User registered successfully' });
+// };
+
+
+
 exports.verifyOtpAndRegister = async (req, res) => {
   const {
-    email, otp, firstName, lastName, phone,
-    password, confirmPassword, gender, subscriptionType,
-    examCategory, termConditions, referralCode
+    email,
+    otp,
+    firstName,
+    lastName,
+    phone,
+    password,
+    confirmPassword,
+    gender,
+    subscriptionType, // not used, overridden below
+    examCategory,
+    termConditions,
+    referralCode
   } = req.body;
 
   const stored = otpStore[email];
 
-if (!stored || stored.otp !== otp || Date.now() > stored.expiresAt) {
-  return res.status(400).json({ message: 'Invalid or expired OTP' });
-}
+  // ✅ Validate OTP
+  if (!stored || stored.otp !== otp || Date.now() > stored.expiresAt) {
+    return res.status(400).json({ message: 'Invalid or expired OTP' });
+  }
 
+  // ✅ Validate password match
   if (password !== confirmPassword) {
     return res.status(400).json({ message: 'Passwords do not match' });
   }
 
-  const user = new User({
-    firstName,
-    lastName,
-    email,
-    phone,
-    password,
-    gender,
-    // subscriptionType,
-    subscriptionType: 'Trial',
-// trialExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 5-minute trial
-trialExpiresAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
-    examCategory,
-    isActive: true,
-    isEmailVerified: true,
-    referralCode,
-    termConditions,
-    lastActiveDate: new Date(),
-    ipAddress: req.headers['x-forwarded-for'] || req.socket.remoteAddress
-  });
-
-  await user.save();
-  delete otpStore[email];
-
-  // ✅ Add to Brevo CRM List
-const { addToBrevoList } = require('../utils/brevo');
-try {
-  await addToBrevoList({
-    email: user.email,
-    firstName: user.firstName,
-    lastName: user.lastName,
-    phone: user.phone
-  });
-  console.log(`✅ Brevo: ${user.email} added to CRM`);
-} catch (err) {
-  console.error("❌ Brevo Sync Failed:", err.message);
-}
-
-
   try {
-    await sendWelcomeEmail(email, firstName);
+    // ✅ Create new user with Trial subscription
+    const user = new User({
+      firstName,
+      lastName,
+      email,
+      phone,
+      password,
+      gender,
+      subscriptionType: 'Trial',
+      trialExpiresAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), // 15 days trial
+      examCategory,
+      isActive: true,
+      isEmailVerified: true,
+      referralCode,
+      termConditions,
+      lastActiveDate: new Date(),
+      ipAddress: req.headers['x-forwarded-for'] || req.socket.remoteAddress
+    });
 
+    await user.save();
+    delete otpStore[email]; // Remove OTP after successful registration
+
+    // ✅ Try Brevo CRM sync (non-blocking)
     try {
-  await notifyAdminOfRegistration(user);
-} catch (err) {
-  console.error("❌ Failed to send admin notification:", err.message);
-}
+      await addToBrevoList({
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        phone: user.phone
+      });
+      console.log(`✅ Brevo: ${user.email} added to CRM`);
+    } catch (err) {
+      console.error("❌ Brevo Sync Failed:", err.message);
+    }
+
+    // ✅ Try Welcome Email (non-blocking)
+    try {
+      await sendWelcomeEmail(user.email, user.firstName);
+    } catch (err) {
+      console.error("❌ Welcome email failed:", err.message);
+    }
+
+    // ✅ Try Admin Notification (non-blocking)
+    try {
+      await notifyAdminOfRegistration(user);
+    } catch (err) {
+      console.error("❌ Admin notification failed:", err.message);
+    }
+
+    // ✅ Respond after all major steps
+    res.status(201).json({ message: 'User registered successfully' });
 
   } catch (err) {
-    console.error("❌ Failed to send welcome email:", err.message);
+    console.error("❌ Registration Error:", err.message);
+    res.status(500).json({ message: 'Registration failed', error: err.message });
   }
-
-  res.status(201).json({ message: 'User registered successfully' });
 };
 
 
