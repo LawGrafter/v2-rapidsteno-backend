@@ -1148,7 +1148,8 @@ exports.verifyOtpAndRegister = async (req, res) => {
     subscriptionType, // not used, overridden below
     examCategory,
     termConditions,
-    referralCode
+    referralCode,
+     state,
   } = req.body;
 
   const stored = otpStore[email];
@@ -1180,6 +1181,7 @@ exports.verifyOtpAndRegister = async (req, res) => {
       referralCode,
       termConditions,
       lastActiveDate: new Date(),
+      state,
       ipAddress: req.headers['x-forwarded-for'] || req.socket.remoteAddress
     });
 
