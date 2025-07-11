@@ -217,7 +217,8 @@ const generateUserPDF = async (user, data, filePath) => {
 // ✅ Send Email With PDF Attachment
 const sendUserReportEmail = async (user, pdfPath) => {
   const mailOptions = {
-    from: process.env.EMAIL_USERNAME,
+    // from: process.env.EMAIL_USERNAME,
+    from: process.env.SMTP_USER,
     to: user.email,
     subject: '📝 Your Weekly Dictation Report is Ready – Track Your Progress Now!',
     // html: `<p>Hi <strong>${user.firstName}</strong>,</p>
@@ -302,14 +303,22 @@ const autoReportMailer = async () => {
 
       await generateUserPDF(user, summary, pdfFile);
 
-      setTimeout(async () => {
-        try {
-          await sendUserReportEmail(user, pdfFile);
-          fs.unlink(pdfFile, () => { });
-        } catch (err) {
-          console.error(`❌ Failed to send report to ${user.email}:`, err.message);
-        }
-      }, 1000);
+      // setTimeout(async () => {
+      //   try {
+      //     await sendUserReportEmail(user, pdfFile);
+      //     fs.unlink(pdfFile, () => { });
+      //   } catch (err) {
+      //     console.error(`❌ Failed to send report to ${user.email}:`, err.message);
+      //   }
+      // }, 1000);
+      try {
+  await sendUserReportEmail(user, pdfFile);
+  fs.unlink(pdfFile, () => {});
+  console.log(`📧 Sent report to ${user.email}`);
+} catch (err) {
+  console.error(`❌ Failed to send report to ${user.email}:`, err.message);
+}
+
     }
   } catch (error) {
     console.error('❌ Error sending reports:', error);

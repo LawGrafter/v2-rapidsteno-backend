@@ -13,6 +13,8 @@ const compareRoutes = require('./routes/compareRoutes');
 const pitmanRoutes = require('./routes/pitmanExerciseRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const pitmanUserSubmissionRoutes = require("./routes/pitmanRoutes");
+const paymentMonthlyRoutes = require('./routes/paymentMonthlyRoutes');
+
 
 require('./utils/trialExpiryJob'); // <--- ⏳ Run every minute to expire Trial users
 
@@ -47,7 +49,7 @@ app.use("/api/compare", compareRoutes);
 app.use('/api/pitmanExercises', pitmanRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use("/api/pitmanUserSubmission", pitmanUserSubmissionRoutes);
-
+app.use('/api/paymentMonthly', paymentMonthlyRoutes);
 
 // Trust proxy to get correct client IP when behind a reverse proxy (like Nginx, Vercel, etc.)
 app.set('trust proxy', true);
@@ -60,11 +62,18 @@ cron.schedule('0 0 * * *', () => {
 
 const autoReportMailer = require('./utils/autoReportMailer');
 
- //cron.schedule('*/1 * * * *', () => {
-cron.schedule('0 */6 * * *', () => {
+//  //cron.schedule('*/1 * * * *', () => {
+// cron.schedule('0 */6 * * *', () => {
 
-  console.log("📤 Scheduled: Sending performance reports...");
-  autoReportMailer();
+//   console.log("📤 Scheduled: Sending performance reports...");
+//   autoReportMailer();
+// });
+
+
+// ✅ Run every Sunday at 10:00 AM
+cron.schedule('0 10 * * 0', async () => {
+  console.log('⏰ Weekly report cron triggered on Sunday 10:00 AM');
+  await autoReportMailer();
 });
 
 
