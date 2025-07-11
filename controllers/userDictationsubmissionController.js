@@ -394,32 +394,114 @@ exports.getDictationSubmissionCounts = async (req, res) => {
 //     res.status(500).json({ message: "Failed to get user dictation stats", error: error.message });
 //   }
 // };
+// exports.getUserDictationStats = async (req, res) => {
+//   try {
+//     const submissions = await UserDictationSubmission.find()
+//       .populate("user", "firstName lastName email")
+//       .populate("dictation", "title category") // optional: can also include paragraphText/audioUrl
+//       .sort({ submittedAt: -1 });
+
+//     const result = submissions.map((sub) => ({
+//       submissionId: sub._id,
+//       submittedAt: sub.submittedAt,
+//       userId: sub.user?._id || null,
+//       name: sub.user ? `${sub.user.firstName} ${sub.user.lastName}` : null,
+//       email: sub.user?.email || null,
+//       dictationId: sub.dictation?._id || null,
+//       dictationTitle: sub.dictationTitle || sub.dictation?.title || "Untitled",
+//       dictationType: sub.dictationType || sub.dictation?.category || "Unknown",
+//       userTypeParagraph: sub.userTypeParagraph,
+//       accuracy: sub.accuracy,
+//       totalMistakes: sub.totalMistakes,
+//       capitalMistakes: sub.capitalMistakes,
+//       spellingMistakes: sub.spellingMistakes,
+//       extraWords: sub.extraWords,
+//       missingWords: sub.missingWords,
+//       playbackSpeed: sub.playbackSpeed,
+//       typingTimer: sub.typingTimer,
+//       mistakeSummary: sub.mistakeSummary,
+//     }));
+
+//     res.status(200).json({
+//       success: true,
+//       count: result.length,
+//       data: result
+//     });
+//   } catch (error) {
+//     console.error("Error fetching detailed user submissions:", error);
+//     res.status(500).json({
+//       message: "Failed to fetch submissions",
+//       error: error.message,
+//     });
+//   }
+// };
+
 exports.getUserDictationStats = async (req, res) => {
   try {
     const submissions = await UserDictationSubmission.find()
       .populate("user", "firstName lastName email")
-      .populate("dictation", "title category") // optional: can also include paragraphText/audioUrl
+      .populate("dictation", "title category")
       .sort({ submittedAt: -1 });
 
-    const result = submissions.map((sub) => ({
-      submissionId: sub._id,
-      submittedAt: sub.submittedAt,
-      userId: sub.user?._id || null,
-      name: sub.user ? `${sub.user.firstName} ${sub.user.lastName}` : null,
-      email: sub.user?.email || null,
-      dictationId: sub.dictation?._id || null,
-      dictationTitle: sub.dictationTitle || sub.dictation?.title || "Untitled",
-      dictationType: sub.dictationType || sub.dictation?.category || "Unknown",
-      userTypeParagraph: sub.userTypeParagraph,
-      accuracy: sub.accuracy,
-      totalMistakes: sub.totalMistakes,
-      capitalMistakes: sub.capitalMistakes,
-      spellingMistakes: sub.spellingMistakes,
-      extraWords: sub.extraWords,
-      missingWords: sub.missingWords,
-      playbackSpeed: sub.playbackSpeed,
-      typingTimer: sub.typingTimer,
-      mistakeSummary: sub.mistakeSummary,
+    const userMap = new Map();
+
+    for (const sub of submissions) {
+      const userId = sub.user?._id?.toString();
+      const dictationId = sub.dictation?._id?.toString();
+
+      if (!userId || !dictationId) continue;
+
+      if (!userMap.has(userId)) {
+        userMap.set(userId, {
+          userId,
+          name: `${sub.user.firstName} ${sub.user.lastName}`,
+          email: sub.user.email,
+          totalSubmissions: 0,
+          totalDictations: 0,
+          dictations: new Map()
+        });
+      }
+
+      const userEntry = userMap.get(userId);
+      userEntry.totalSubmissions += 1;
+
+      if (!userEntry.dictations.has(dictationId)) {
+        userEntry.dictations.set(dictationId, {
+          dictationId,
+          dictationTitle: sub.dictation?.title || sub.dictationTitle || "Untitled",
+          dictationType: sub.dictation?.category || sub.dictationType || "Unknown",
+          submissionCount: 0,
+          submissions: []
+        });
+        userEntry.totalDictations += 1;
+      }
+
+      const dictationEntry = userEntry.dictations.get(dictationId);
+      dictationEntry.submissionCount += 1;
+
+      dictationEntry.submissions.push({
+        submissionId: sub._id,
+        submittedAt: sub.submittedAt,
+        userTypeParagraph: sub.userTypeParagraph,
+        accuracy: sub.accuracy,
+        totalMistakes: sub.totalMistakes,
+        capitalMistakes: sub.capitalMistakes,
+        spellingMistakes: sub.spellingMistakes,
+        extraWords: sub.extraWords,
+        missingWords: sub.missingWords,
+        playbackSpeed: sub.playbackSpeed,
+        typingTimer: sub.typingTimer,
+        mistakeSummary: sub.mistakeSummary
+      });
+    }
+
+    const result = Array.from(userMap.values()).map(user => ({
+      userId: user.userId,
+      name: user.name,
+      email: user.email,
+      totalSubmissions: user.totalSubmissions,
+      totalDictations: user.totalDictations,
+      dictations: Array.from(user.dictations.values())
     }));
 
     res.status(200).json({
@@ -428,9 +510,9 @@ exports.getUserDictationStats = async (req, res) => {
       data: result
     });
   } catch (error) {
-    console.error("Error fetching detailed user submissions:", error);
+    console.error("Error building full user dictation stats:", error);
     res.status(500).json({
-      message: "Failed to fetch submissions",
+      message: "Failed to build user dictation stats",
       error: error.message,
     });
   }
