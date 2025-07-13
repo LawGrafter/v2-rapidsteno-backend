@@ -74,10 +74,10 @@ const autoReportMailer = require('./utils/autoReportMailer');
 
 
 // ✅ Run every Sunday at 10:00 AM
-cron.schedule('0 10 * * 0', async () => {
-  console.log('⏰ Weekly report cron triggered on Sunday 10:00 AM');
-  await autoReportMailer();
-});
+// cron.schedule('0 10 * * 0', async () => {
+//   console.log('⏰ Weekly report cron triggered on Sunday 10:00 AM');
+//   await autoReportMailer();
+// });
 
 
 
