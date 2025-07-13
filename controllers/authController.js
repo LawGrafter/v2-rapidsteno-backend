@@ -23,7 +23,26 @@ exports.register = async (req, res) => {
       termConditions,
       referralCode,
       state,
+      sourceOfDiscovery,
     } = req.body;
+
+
+    const validSources = [
+      'Google',
+      'Facebook',
+      'Instagram',
+      'YouTube',
+      'Friend',
+      'WhatsApp',
+      'Pamphlet',
+      'Mouth to Mouth',
+      'Offline Source',
+      'Other'
+    ];
+
+     if (!validSources.includes(sourceOfDiscovery)) {
+      return res.status(400).json({ message: 'Invalid value for How did you hear about us?' });
+    }
 
     // ✅ Step 2: Validate terms acceptance
     if (!termConditions) {
@@ -71,6 +90,7 @@ trialExpiresAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), // 👈 15 days
       referralCode,
       ipAddress: ip,
       state,
+      sourceOfDiscovery,
     });
 
     await user.save();

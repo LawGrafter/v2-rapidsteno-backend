@@ -14,7 +14,8 @@ const pitmanRoutes = require('./routes/pitmanExerciseRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const pitmanUserSubmissionRoutes = require("./routes/pitmanRoutes");
 const paymentMonthlyRoutes = require('./routes/paymentMonthlyRoutes');
-
+const questionRoutes = require("./routes/questionRoutes");
+const mcqSubmissionRoutes = require("./routes/mcqSubmissionRoutes");
 
 require('./utils/trialExpiryJob'); // <--- ⏳ Run every minute to expire Trial users
 
@@ -50,6 +51,8 @@ app.use('/api/pitmanExercises', pitmanRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use("/api/pitmanUserSubmission", pitmanUserSubmissionRoutes);
 app.use('/api/paymentMonthly', paymentMonthlyRoutes);
+app.use("/api/questions", questionRoutes);
+app.use("/api/mcq-submissions", mcqSubmissionRoutes);
 
 // Trust proxy to get correct client IP when behind a reverse proxy (like Nginx, Vercel, etc.)
 app.set('trust proxy', true);
