@@ -19,6 +19,8 @@ const mcqSubmissionRoutes = require("./routes/mcqSubmissionRoutes");
 
 require('./utils/trialExpiryJob'); // <--- ⏳ Run every minute to expire Trial users
 
+
+
 dotenv.config();
 connectDB();
 
