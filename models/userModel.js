@@ -96,6 +96,23 @@ ipAddress: {
   count: { type: Number, default: 1 }
 }],
 
+sourceOfDiscovery: {
+  type: String,
+  enum: [
+    'Google',
+    'Facebook',
+    'Instagram',
+    'YouTube',
+    'Friend',
+    'WhatsApp',
+    'Pamphlet',
+    'Mouth to Mouth',
+    'Offline Source',
+    'Other'
+  ],
+  default: 'Other',
+},
+
 
 }, { timestamps: true });
 
