@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const submissionController = require("../controllers/mcqsubmissionController");
+const submissionController = require("../controllers/mcqSubmissionController");
 // Submit a full test
 router.post("/", submissionController.submitTest);
 
