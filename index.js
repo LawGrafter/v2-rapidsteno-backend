@@ -58,12 +58,12 @@ app.use("/api/mcq-submissions", mcqSubmissionRoutes);
 app.set('trust proxy', true);
 
 // ✅ Schedule cron job to run daily at midnight
-cron.schedule('0 0 * * *', () => {
-  console.log("🔄 Running daily user deactivation check...");
-  autoDeactivateUsers();
-});
+// cron.schedule('0 0 * * *', () => {
+//   console.log("🔄 Running daily user deactivation check...");
+//   autoDeactivateUsers();
+// });
 
-const autoReportMailer = require('./utils/autoReportMailer');
+// const autoReportMailer = require('./utils/autoReportMailer');
 
 //  //cron.schedule('*/1 * * * *', () => {
 // cron.schedule('0 */6 * * *', () => {
