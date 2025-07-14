@@ -23,7 +23,7 @@ exports.register = async (req, res) => {
       termConditions,
       referralCode,
       state,
-      sourceOfDiscovery,
+      // sourceOfDiscovery,
     } = req.body;
 
 
@@ -43,9 +43,9 @@ exports.register = async (req, res) => {
       'other'
     ];
 
-     if (!validSources.includes(sourceOfDiscovery)) {
-      return res.status(400).json({ message: 'Invalid value for How did you hear about us?' });
-    }
+    //  if (!validSources.includes(sourceOfDiscovery)) {
+    //   return res.status(400).json({ message: 'Invalid value for How did you hear about us?' });
+    // }
 
     // ✅ Step 2: Validate terms acceptance
     if (!termConditions) {
@@ -93,7 +93,7 @@ trialExpiresAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), // 👈 15 days
       referralCode,
       ipAddress: ip,
       state,
-      sourceOfDiscovery,
+      // sourceOfDiscovery,
     });
 
     await user.save();
@@ -608,7 +608,7 @@ exports.verifyOtpAndRegister = async (req, res) => {
     termConditions,
     referralCode,
      state,
-     sourceOfDiscovery,
+    //  sourceOfDiscovery,
   } = req.body;
 
   const stored = otpStore[email];
@@ -642,7 +642,7 @@ exports.verifyOtpAndRegister = async (req, res) => {
       lastActiveDate: new Date(),
       state,
       ipAddress: req.headers['x-forwarded-for'] || req.socket.remoteAddress,
-      sourceOfDiscovery,
+      // sourceOfDiscovery,
     });
 
     await user.save();

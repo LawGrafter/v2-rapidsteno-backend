@@ -22,20 +22,19 @@ const DailyActivitySchema = new mongoose.Schema({
 const UserSchema = new mongoose.Schema({
   firstName: { type: String, required: true },
   lastName: { type: String, required: true },
-  email: { 
-    type: String, 
-    required: true, 
+  email: {
+    type: String,
+    required: true,
     unique: true,
     validate: [validator.isEmail, 'Invalid email address']
   },
-  phone: { 
-    type: String, 
-    required: true, 
+  phone: {
+    type: String,
+    required: true,
     validate: [validator.isMobilePhone, 'Invalid phone number']
   },
   password: { type: String, required: true, minlength: 6 },
   gender: { type: String, required: true, enum: ['Male', 'Female', 'Other'] },
-  // subscriptionType: { type: String, enum: ['Free', 'Paid'], default: 'Free' },
   subscriptionType: {
   type: String,
   enum: ['Trial', 'Unpaid', 'Paid'],
@@ -53,14 +52,14 @@ subscriptionHistory: [{
   isActive: { type: Boolean, default: true },
   lastActiveDate: { type: Date, default: Date.now },
 
-    trialExpiresAt: { type: Date },            // ⏳ Trial ends
-  paidUntil: { type: Date },                 // 💰 Paid plan expires
+    trialExpiresAt: { type: Date },
+  paidUntil: { type: Date },
 
  state: {
     type: String,
     default: ""
   },
-  
+
   otp: { type: String },
 otpExpiresAt: { type: Date },
 isEmailVerified: { type: Boolean, default: false },
@@ -74,8 +73,6 @@ seenNotificationIds: {
   default: [],
 },
 
-
-
 termConditions: {
   type: Boolean,
   required: true
@@ -88,40 +85,11 @@ ipAddress: {
   type: String,
 },
 
-  // ✅ New: Track activity by day and page
   activityLogs: [DailyActivitySchema],
   pageViewStats: [{
   page: String,
   count: { type: Number, default: 1 }
 }],
-
-// sourceOfDiscovery: {
-//   type: String,
-//   enum: [
-//     'google',
-//     'telegram',
-//     'linkedin',
-//     'snapchat',
-//     'twitter',
-//     'facebook',
-//     'instagram',
-//     'youTube',
-//     'from friend',
-//     'whatsApp',
-//     'pamphlet',
-//     'banner',
-//     'other'
-//   ],
-//   default: 'other',
-// },
-
-sourceOfDiscovery: {
-  type: String,
-  enum: ['google', 'telegram', 'linkedin', 'snapchat', 'twitter', 'facebook', 'instagram', 'youTube', 'from friend', 'whatsApp', 'pamphlet', 'banner', 'other'],
-  default: 'other',
-  set: v => v?.toLowerCase?.()
-}
-
 
 }, { timestamps: true });
 
