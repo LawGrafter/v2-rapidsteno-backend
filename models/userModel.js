@@ -95,25 +95,32 @@ ipAddress: {
   count: { type: Number, default: 1 }
 }],
 
+// sourceOfDiscovery: {
+//   type: String,
+//   enum: [
+//     'google',
+//     'telegram',
+//     'linkedin',
+//     'snapchat',
+//     'twitter',
+//     'facebook',
+//     'instagram',
+//     'youTube',
+//     'from friend',
+//     'whatsApp',
+//     'pamphlet',
+//     'banner',
+//     'other'
+//   ],
+//   default: 'other',
+// },
+
 sourceOfDiscovery: {
   type: String,
-  enum: [
-    'google',
-    'telegram',
-    'linkedin',
-    'snapchat',
-    'twitter',
-    'facebook',
-    'instagram',
-    'youTube',
-    'from friend',
-    'whatsApp',
-    'pamphlet',
-    'banner',
-    'other'
-  ],
+  enum: ['google', 'telegram', 'linkedin', 'snapchat', 'twitter', 'facebook', 'instagram', 'youTube', 'from friend', 'whatsApp', 'pamphlet', 'banner', 'other'],
   default: 'other',
-},
+  set: v => v?.toLowerCase?.()
+}
 
 
 }, { timestamps: true });

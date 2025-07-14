@@ -608,6 +608,7 @@ exports.verifyOtpAndRegister = async (req, res) => {
     termConditions,
     referralCode,
      state,
+     sourceOfDiscovery,
   } = req.body;
 
   const stored = otpStore[email];
@@ -640,7 +641,8 @@ exports.verifyOtpAndRegister = async (req, res) => {
       termConditions,
       lastActiveDate: new Date(),
       state,
-      ipAddress: req.headers['x-forwarded-for'] || req.socket.remoteAddress
+      ipAddress: req.headers['x-forwarded-for'] || req.socket.remoteAddress,
+      sourceOfDiscovery,
     });
 
     await user.save();
