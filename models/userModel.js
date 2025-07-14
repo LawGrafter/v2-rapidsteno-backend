@@ -99,18 +99,20 @@ ipAddress: {
 sourceOfDiscovery: {
   type: String,
   enum: [
-    'Google',
-    'Facebook',
-    'Instagram',
-    'YouTube',
-    'Friend',
-    'WhatsApp',
-    'Pamphlet',
-    'Mouth to Mouth',
-    'Offline Source',
-    'Other'
+    'google',
+    'telegram',
+    'linkedin',
+    'snapchat',
+    'twitter',
+    'facebook',
+    'instagram',
+    'youTube',
+    'from friend',
+    'whatsApp',
+    'pamphlet',
+    'banner'
   ],
-  default: 'Other',
+  default: '',
 },
 
 
