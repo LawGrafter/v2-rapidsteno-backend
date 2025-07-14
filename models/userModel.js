@@ -1,4 +1,3 @@
-
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const validator = require('validator');
@@ -110,9 +109,10 @@ sourceOfDiscovery: {
     'from friend',
     'whatsApp',
     'pamphlet',
-    'banner'
+    'banner',
+    'other'
   ],
-  default: '',
+  default: 'other',
 },
 
 
