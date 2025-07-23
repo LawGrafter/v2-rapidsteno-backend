@@ -16,6 +16,7 @@ const pitmanUserSubmissionRoutes = require("./routes/pitmanRoutes");
 const paymentMonthlyRoutes = require('./routes/paymentMonthlyRoutes');
 const questionRoutes = require("./routes/questionRoutes");
 const mcqSubmissionRoutes = require("./routes/mcqSubmissionRoutes");
+const typingTestRoutes = require('./routes/typingTestRoutes');
 
 require('./utils/trialExpiryJob'); // <--- ⏳ Run every minute to expire Trial users
 
@@ -43,7 +44,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 app.use('/api/auth', require('./routes/authRoutes'));
-app.use('/api/dictation', require('./routes/dictationRoutes'));
+app.use('/api/dictations', require('./routes/dictationRoutes'));
 app.use('/api/admin', adminRoutes); // Prefix all admin routes
 app.use("/api/user/dictationSubmissions", submissionRoutes);
 app.use("/api/feedback", feedbackRoutes);
@@ -55,6 +56,7 @@ app.use("/api/pitmanUserSubmission", pitmanUserSubmissionRoutes);
 app.use('/api/paymentMonthly', paymentMonthlyRoutes);
 app.use("/api/questions", questionRoutes);
 app.use("/api/mcq-submissions", mcqSubmissionRoutes);
+app.use('/api/typing-test', typingTestRoutes);
 
 // Trust proxy to get correct client IP when behind a reverse proxy (like Nginx, Vercel, etc.)
 app.set('trust proxy', true);
