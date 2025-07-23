@@ -329,3 +329,14 @@ const autoReportMailer = async () => {
 
 // ✅ Export for use in cron or manual trigger
 module.exports = autoReportMailer;
+
+// // ✅ Run manually if executed from terminal
+// if (require.main === module) {
+//   require('dotenv').config(); // Load .env variables if needed
+
+//   (async () => {
+//     console.log('🚀 Manually triggering autoReportMailer...');
+//     await autoReportMailer();
+//     console.log('✅ Done sending all user reports!');
+//   })();
+// }

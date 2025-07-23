@@ -27,6 +27,19 @@ const router = express.Router();
 const adminController = require('../controllers/adminController');
 const adminAuth = require('../middleware/authMiddleware');
 const User = require('../models/userModel'); // ✅ Make sure this is imported
+const { 
+    getAllDictations,
+    getDictationById, 
+    createDictation,
+    updateDictation,
+    deleteDictation,
+} = require('../controllers/dictationController');
+
+const {
+    createTypingMatter,
+    updateTypingMatter,
+    deleteTypingMatter,
+} = require('../controllers/typingTestController');
 
 
 // ✅ Admin Login Routes
@@ -72,9 +85,13 @@ router.get('/dashboard', adminAuth, (req, res) => {
   res.status(200).json({ message: 'Welcome to Admin Dashboard' });
 });
 
+router.put('/dictations/:id', adminAuth, updateDictation);
+router.delete('/dictations/:id', adminAuth, deleteDictation);
 
-
-
+// Typing Matter Admin Routes
+router.post('/typing-matter', adminAuth, createTypingMatter);
+router.put('/typing-matter/:id', adminAuth, updateTypingMatter);
+router.delete('/typing-matter/:id', adminAuth, deleteTypingMatter);
 
 
 module.exports = router;
