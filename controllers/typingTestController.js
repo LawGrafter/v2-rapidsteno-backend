@@ -178,6 +178,28 @@ const deleteTypingMatter = async (req, res) => {
     }
 };
 
+// @desc    Get all users with their typing test records
+// @route   GET /api/admin/typing-records
+// @access  Private/Admin
+const getAllUserTypingData = async (req, res) => {
+  try {
+    // Fetch all typing records and populate user + matter details
+    const records = await TypingRecord.find()
+      .populate("user", "firstName lastName email")
+      .populate("matter", "title category difficulty")
+      .lean();
+
+    res.status(200).json({
+      totalRecords: records.length,
+      records,
+    });
+  } catch (error) {
+    console.error("Error fetching all user typing data:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+
 module.exports = {
     getTypingMatter,
     submitTypingRecord,
@@ -185,4 +207,5 @@ module.exports = {
     createTypingMatter,
     updateTypingMatter,
     deleteTypingMatter,
+    getAllUserTypingData,
 }; 

@@ -4,12 +4,15 @@ const {
     getTypingMatter,
     submitTypingRecord,
     getTypingAnalytics,
+    getAllUserTypingData
 } = require('../controllers/typingTestController');
 const { userProtect } = require('../middleware/userMiddleware');
+const  adminProtect  = require("../middleware/adminMiddleware");
 
 router.get('/matter', getTypingMatter);
 router.post('/record', userProtect, submitTypingRecord);
 router.get('/analytics/:userId', userProtect, getTypingAnalytics);
+router.get("/typing-records", adminProtect, getAllUserTypingData);
 
 module.exports = router; 
 
