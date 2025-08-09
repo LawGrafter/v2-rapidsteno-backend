@@ -40,7 +40,7 @@ exports.adminVerifyOtp = (req, res) => {
   // OTP valid, clear from memory
   delete otpStore[email];
 
-  const token = jwt.sign({ email }, SECRET_KEY, { expiresIn: '1h' });
+  const token = jwt.sign({ email }, SECRET_KEY, { expiresIn: '7h' });
 
   return res.status(200).json({
     message: 'Login successful',
