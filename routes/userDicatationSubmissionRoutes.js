@@ -9,6 +9,8 @@ const {
   getGlobalLeaderboard,
 getDictationSubmissionCounts,
 getUserDictationStats,
+getUserDictationStatsSummary,
+getUserDictationAnalysis 
 } = require("../controllers/userDictationsubmissionController");
 const { userProtect } = require("../middleware/userMiddleware");
 const adminProtect = require("../middleware/authMiddleware");
@@ -21,5 +23,11 @@ router.put("/:userId/:dictationId", userProtect, updateUserSubmission);
 router.get("/leaderboard", userProtect, getGlobalLeaderboard);
 router.get("/dictation-submission-counts", adminProtect, getDictationSubmissionCounts);
 router.get("/user-dictation-stats", getUserDictationStats);
+
+// ✅ New route to get total dictations, avg, highest, and lowest accuracy
+router.get("/user-dictation-summary/:userId", userProtect, getUserDictationStatsSummary);
+
+// ✅ New analysis route
+router.get("/user-dictation-analysis/:userId", userProtect, getUserDictationAnalysis);
 
 module.exports = router;

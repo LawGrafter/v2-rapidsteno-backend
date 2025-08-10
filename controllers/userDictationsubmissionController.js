@@ -517,3 +517,112 @@ exports.getUserDictationStats = async (req, res) => {
     });
   }
 };
+
+
+exports.getUserDictationStatsSummary = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const submissions = await UserDictationSubmission.find({ user: userId });
+
+    if (!submissions.length) {
+      return res.status(404).json({
+        success: false,
+        message: "No submissions found for this user"
+      });
+    }
+
+    // Unique dictations completed
+    const totalDictations = new Set(submissions.map(s => s.dictation.toString())).size;
+
+    // Accuracy stats
+    const accuracies = submissions.map(s => s.accuracy || 0);
+    const averageAccuracy = accuracies.reduce((a, b) => a + b, 0) / accuracies.length;
+    const highestAccuracy = Math.max(...accuracies);
+    const lowestAccuracy = Math.min(...accuracies);
+
+    res.status(200).json({
+      success: true,
+      userId,
+      totalDictations,
+      averageAccuracy: Number(averageAccuracy.toFixed(2)),
+      highestAccuracy,
+      lowestAccuracy
+    });
+  } catch (error) {
+    console.error("Error fetching user dictation stats summary:", error);
+    res.status(500).json({
+      message: "Failed to fetch user dictation stats summary",
+      error: error.message
+    });
+  }
+};
+
+
+exports.getUserDictationAnalysis = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const submissions = await UserDictationSubmission.find({ user: userId });
+
+    if (!submissions.length) {
+      return res.status(404).json({ success: false, message: "No submissions found" });
+    }
+
+    let totalMistakesByType = {
+      capitalMistakes: 0,
+      spellingMistakes: 0,
+      extraWords: 0,
+      missingWords: 0,
+      punctuationMistakes: 0
+    };
+
+    let mistakeWordFrequency = {};
+
+    submissions.forEach(sub => {
+      totalMistakesByType.capitalMistakes += sub.capitalMistakes || 0;
+      totalMistakesByType.spellingMistakes += sub.spellingMistakes || 0;
+      totalMistakesByType.extraWords += sub.extraWords || 0;
+      totalMistakesByType.missingWords += sub.missingWords || 0;
+      totalMistakesByType.punctuationMistakes += sub.mistakeSummary?.punctuationMistakes?.length || 0;
+
+      // Track most frequent mistaken words
+      ["capitalSpellingMistakes", "spellingMistakes", "missingWords"].forEach(type => {
+        (sub.mistakeSummary?.[type] || []).forEach(word => {
+          mistakeWordFrequency[word] = (mistakeWordFrequency[word] || 0) + 1;
+        });
+      });
+    });
+
+    // Find most common mistakes
+    const mostCommonMistakes = Object.entries(mistakeWordFrequency)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([word, count]) => ({ word, count }));
+
+    // Suggestion logic
+    let suggestions = [];
+    if (totalMistakesByType.spellingMistakes > totalMistakesByType.capitalMistakes) {
+      suggestions.push("Focus on spelling drills with commonly mistaken words.");
+    }
+    if (totalMistakesByType.capitalMistakes > 0) {
+      suggestions.push("Practice capitalization rules in Rapid Steno sessions.");
+    }
+    if (totalMistakesByType.extraWords > 0) {
+      suggestions.push("Work on typing precision — avoid adding extra words.");
+    }
+    if (totalMistakesByType.missingWords > 0) {
+      suggestions.push("Slow down slightly to ensure no words are skipped.");
+    }
+
+    res.status(200).json({
+      success: true,
+      totalMistakesByType,
+      mostCommonMistakes,
+      suggestions
+    });
+
+  } catch (error) {
+    console.error("Analysis Error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
