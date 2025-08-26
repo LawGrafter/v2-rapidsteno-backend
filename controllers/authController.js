@@ -78,10 +78,7 @@ exports.register = async (req, res) => {
       password,
       gender,
       subscriptionType: 'Trial',                          // 👈 Force trial
-      // trialExpiresAt: new Date(Date.now() + 5 * 60 * 1000), // 👈 5 minutes from now
-      // trialExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      // trialExpiresAt: new Date(Date.now() + 5 * 60 * 1000), // 👈 5 minutes from now
-trialExpiresAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), // 👈 15 days from now
+      trialExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 👈 7 days from now
 
       examCategory,
       isActive: true,
@@ -633,7 +630,7 @@ exports.verifyOtpAndRegister = async (req, res) => {
       password,
       gender,
       subscriptionType: 'Trial',
-      trialExpiresAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), // 15 days trial
+      trialExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days trial
       examCategory,
       isActive: true,
       isEmailVerified: true,
