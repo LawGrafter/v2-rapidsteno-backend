@@ -77,7 +77,12 @@ exports.uploadDictation = (req, res) => {
 // Get All Dictations
 exports.getAllDictations = async (req, res) => {
   try {
-    const dictations = await Dictation.find().sort({ createdAt: -1 });
+    const { category } = req.query;
+    const filter = {};
+    if (category) {
+      filter.category = category;
+    }
+    const dictations = await Dictation.find(filter).sort({ createdAt: -1 });
     res.status(200).json({ success: true, data: dictations });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to fetch dictations', error: err.message });
