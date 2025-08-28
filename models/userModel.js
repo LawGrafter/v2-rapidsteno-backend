@@ -52,7 +52,10 @@ subscriptionHistory: [{
   isActive: { type: Boolean, default: true },
   lastActiveDate: { type: Date, default: Date.now },
 
-    trialExpiresAt: { type: Date },
+  // User's current shorthand speed in WPM
+  currentShorthandWPM: { type: Number, enum: [70, 80, 90, 100, 110, 115, 120, 125, 130, 135, 140, 150, 160] },
+
+  trialExpiresAt: { type: Date },
   paidUntil: { type: Date },
 
  state: {
@@ -78,6 +81,10 @@ termConditions: {
   required: true
 },
 referralCode: {
+  type: String,
+  default: ''
+},
+sourceOfDiscovery: {
   type: String,
   default: ''
 },

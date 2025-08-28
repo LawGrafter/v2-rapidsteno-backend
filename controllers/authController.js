@@ -23,29 +23,18 @@ exports.register = async (req, res) => {
       termConditions,
       referralCode,
       state,
-      // sourceOfDiscovery,
+      currentShorthandWPM,
+      sourceOfDiscovery,
     } = req.body;
 
+    const allowedWPM = [70, 80, 90, 100, 110, 115, 120, 125, 130, 135, 140, 150, 160];
+    if (currentShorthandWPM !== undefined && !allowedWPM.includes(Number(currentShorthandWPM))) {
+      return res.status(400).json({ message: 'Invalid currentShorthandWPM. Allowed: ' + allowedWPM.join(', ') });
+    }
 
-    const validSources = [
-      'google',
-      'telegram',
-      'linkedin',
-      'snapchat',
-      'twitter',
-      'facebook',
-      'instagram',
-      'youTube',
-      'from friend',
-      'whatsApp',
-      'pamphlet',
-      'banner',
-      'other'
-    ];
-
-    //  if (!validSources.includes(sourceOfDiscovery)) {
-    //   return res.status(400).json({ message: 'Invalid value for How did you hear about us?' });
-    // }
+    // Sanitize sourceOfDiscovery (optional free-text field)
+    const cleanSourceOfDiscovery =
+      typeof sourceOfDiscovery === 'string' ? sourceOfDiscovery.trim() : '';
 
     // ✅ Step 2: Validate terms acceptance
     if (!termConditions) {
@@ -90,7 +79,8 @@ exports.register = async (req, res) => {
       referralCode,
       ipAddress: ip,
       state,
-      // sourceOfDiscovery,
+      currentShorthandWPM: currentShorthandWPM !== undefined ? Number(currentShorthandWPM) : undefined,
+      sourceOfDiscovery: cleanSourceOfDiscovery,
     });
 
     await user.save();
@@ -589,7 +579,6 @@ exports.markComparisonTourAsSeen = async (req, res) => {
   }
 };
 
-
 exports.verifyOtpAndRegister = async (req, res) => {
   const {
     email,
@@ -604,24 +593,35 @@ exports.verifyOtpAndRegister = async (req, res) => {
     examCategory,
     termConditions,
     referralCode,
-     state,
-    //  sourceOfDiscovery,
+    state,
+    currentShorthandWPM,
+    sourceOfDiscovery,
   } = req.body;
 
   const stored = otpStore[email];
 
-  // ✅ Validate OTP
+  // Validate OTP
   if (!stored || stored.otp !== otp || Date.now() > stored.expiresAt) {
     return res.status(400).json({ message: 'Invalid or expired OTP' });
   }
 
-  // ✅ Validate password match
+  // Validate password match
   if (password !== confirmPassword) {
     return res.status(400).json({ message: 'Passwords do not match' });
   }
 
+  // Validate shorthand WPM if provided
+  const allowedWPM = [70, 80, 90, 100, 110, 115, 120, 125, 130, 135, 140, 150, 160];
+  if (currentShorthandWPM !== undefined && !allowedWPM.includes(Number(currentShorthandWPM))) {
+    return res.status(400).json({ message: 'Invalid currentShorthandWPM. Allowed: ' + allowedWPM.join(', ') });
+  }
+
+  // Sanitize sourceOfDiscovery (optional free-text field)
+  const cleanSourceOfDiscovery =
+    typeof sourceOfDiscovery === 'string' ? sourceOfDiscovery.trim() : '';
+
   try {
-    // ✅ Create new user with Trial subscription
+    // Create new user with Trial subscription
     const user = new User({
       firstName,
       lastName,
@@ -639,13 +639,14 @@ exports.verifyOtpAndRegister = async (req, res) => {
       lastActiveDate: new Date(),
       state,
       ipAddress: req.headers['x-forwarded-for'] || req.socket.remoteAddress,
-      // sourceOfDiscovery,
+      currentShorthandWPM: currentShorthandWPM !== undefined ? Number(currentShorthandWPM) : undefined,
+      sourceOfDiscovery: cleanSourceOfDiscovery,
     });
 
     await user.save();
     delete otpStore[email]; // Remove OTP after successful registration
 
-    // ✅ Try Brevo CRM sync (non-blocking)
+    // Try Brevo CRM sync (non-blocking)
     try {
       await addToBrevoList({
         email: user.email,
