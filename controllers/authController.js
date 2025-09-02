@@ -8,6 +8,11 @@ const sendWelcomeEmail = require('../utils/sendWelcomeEmail');
 const notifyAdminOfRegistration = require('../utils/sendAdminNotification');
 const { addToBrevoList } = require('../utils/brevo');
 
+// Helper to safely build a regex from user input
+function escapeRegex(str) {
+  return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 exports.register = async (req, res) => {
   try {
     // ✅ Step 1: Destructure only the required fields (no subscriptionType here)
@@ -47,7 +52,10 @@ exports.register = async (req, res) => {
     }
 
     // ✅ Step 4: Check if user already exists
-    const existingUser = await User.findOne({ email });
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    const existingUser = await User.findOne({
+      email: { $regex: `^${escapeRegex(normalizedEmail)}$`, $options: 'i' }
+    });
     if (existingUser) {
       return res.status(400).json({ message: 'User with this email already exists' });
     }
@@ -62,7 +70,7 @@ exports.register = async (req, res) => {
     const user = new User({
       firstName,
       lastName,
-      email,
+      email: normalizedEmail,
       phone,
       password,
       gender,
@@ -96,7 +104,7 @@ exports.register = async (req, res) => {
 
     await transporter.sendMail({
       from: process.env.SMTP_USER,
-      to: email,
+      to: normalizedEmail,
       subject: 'Verify Your Email',
       html: `
       <!DOCTYPE html>
@@ -152,8 +160,11 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({
+      email: { $regex: `^${escapeRegex(normalizedEmail)}$`, $options: 'i' }
+    });
     if (!user) return res.status(400).json({ message: 'Invalid email or password' });
 
     if (!user.isEmailVerified) {
@@ -183,16 +194,11 @@ if (user.subscriptionType === 'Paid' && user.paidUntil && new Date() > user.paid
 }
 
 // ✅ Save the changes BEFORE blocking login
-if (updated) {
-  await user.save();
-}
+    if (updated) {
+      await user.save();
+    }
 
-// ❌ Block unpaid users from logging in
-if (user.subscriptionType === 'Unpaid') {
-  return res.status(403).json({
-    message: 'Your free trial or subscription has expired. Please contact admin.'
-  });
-}
+    // ✅ Allow 'Unpaid' users to log in. Access restrictions (if any) should be handled at feature level.
 
     // ✅ Update session info
     const sessionToken = crypto.randomUUID();
@@ -355,8 +361,9 @@ try {
 exports.verifyOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user || user.otp !== otp || user.otpExpiresAt < new Date()) {
       return res.status(400).json({ message: 'Invalid or expired OTP' });
     }
@@ -418,7 +425,8 @@ exports.verifyOtp = async (req, res) => {
 exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
-    const user = await User.findOne({ email });
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    const user = await User.findOne({ email: normalizedEmail });
 
     if (!user) return res.status(404).json({ message: 'User not found' });
 
@@ -440,7 +448,7 @@ exports.forgotPassword = async (req, res) => {
 
     await transporter.sendMail({
       from: process.env.SMTP_USER,
-      to: email,
+      to: normalizedEmail,
       subject: 'Password Reset Request',
       html: `<p>Click the link below to reset your password (valid for 15 minutes):</p>
              <a href="${resetLink}">${resetLink}</a>`
@@ -480,12 +488,15 @@ const otpStore = {};
 
 exports.sendOtp = async (req, res) => {
   const { email, firstName } = req.body;
+  const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
 
-  const userExists = await User.findOne({ email });
+  const userExists = await User.findOne({
+    email: { $regex: `^${escapeRegex(normalizedEmail)}$`, $options: 'i' }
+  });
   if (userExists) return res.status(400).json({ message: 'User already exists' });
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  otpStore[email] = { otp, expiresAt: Date.now() + 10 * 60 * 1000 };
+  otpStore[normalizedEmail] = { otp, expiresAt: Date.now() + 10 * 60 * 1000 };
 
   // send OTP
   const transporter = nodemailer.createTransport({
@@ -498,7 +509,7 @@ exports.sendOtp = async (req, res) => {
 
   await transporter.sendMail({
     from: process.env.SMTP_USER,
-    to: email,
+    to: normalizedEmail,
     subject: 'Your OTP for Rapid Steno',
     // html: `<p>Hello <strong>${firstName || "User"}</strong>,<br/>Your OTP is <b>${otp}</b>. It expires in 10 minutes.</p>`
    
@@ -598,7 +609,8 @@ exports.verifyOtpAndRegister = async (req, res) => {
     sourceOfDiscovery,
   } = req.body;
 
-  const stored = otpStore[email];
+  const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+  const stored = otpStore[normalizedEmail];
 
   // Validate OTP
   if (!stored || stored.otp !== otp || Date.now() > stored.expiresAt) {
@@ -625,7 +637,7 @@ exports.verifyOtpAndRegister = async (req, res) => {
     const user = new User({
       firstName,
       lastName,
-      email,
+      email: normalizedEmail,
       phone,
       password,
       gender,
@@ -644,7 +656,7 @@ exports.verifyOtpAndRegister = async (req, res) => {
     });
 
     await user.save();
-    delete otpStore[email]; // Remove OTP after successful registration
+    delete otpStore[normalizedEmail]; // Remove OTP after successful registration
 
     // Try Brevo CRM sync (non-blocking)
     try {
@@ -787,14 +799,19 @@ exports.updateUserProfile = async (req, res) => {
     // Update fields if they are provided
     if (firstName) user.firstName = firstName;
     if (lastName) user.lastName = lastName;
-    if (email && email !== user.email) {
-      // Check if email is already taken
-      const existing = await User.findOne({ email });
-      if (existing && existing._id.toString() !== userId) {
-        return res.status(400).json({ message: 'Email already in use' });
+    if (email) {
+      const newEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+      if (newEmail && newEmail !== user.email) {
+        // Check if email is already taken (case-insensitive to match legacy data)
+        const existing = await User.findOne({
+          email: { $regex: `^${escapeRegex(newEmail)}$`, $options: 'i' }
+        });
+        if (existing && existing._id.toString() !== userId) {
+          return res.status(400).json({ message: 'Email already in use' });
+        }
+        user.email = newEmail;
+        user.isEmailVerified = false; // Reset email verification
       }
-      user.email = email;
-      user.isEmailVerified = false; // Reset email verification
     }
     if (gender) user.gender = gender;
     if (mobileNumber) user.phone = mobileNumber;
