@@ -626,3 +626,76 @@ exports.getUserDictationAnalysis = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// Admin: Usage analytics by dictation category and title (topic)
+// Query params:
+//   from: ISO date (optional)
+//   to: ISO date (optional)
+//   limit: number of top items to return (default 10)
+exports.getDictationUsageAnalytics = async (req, res) => {
+  try {
+    const { from, to, limit = 10 } = req.query;
+
+    const match = {};
+    // Use createdAt (from timestamps) to filter by date range when provided
+    if (from || to) {
+      match.createdAt = {};
+      if (from) match.createdAt.$gte = new Date(from);
+      if (to) match.createdAt.$lte = new Date(to);
+    }
+
+    const categoryPipeline = [
+      Object.keys(match).length ? { $match: match } : null,
+      {
+        $group: {
+          _id: "$dictationType",
+          usageCount: { $sum: 1 }
+        }
+      },
+      { $sort: { usageCount: -1 } },
+      { $limit: Number(limit) },
+      {
+        $project: {
+          _id: 0,
+          category: "$_id",
+          usageCount: 1
+        }
+      }
+    ].filter(Boolean);
+
+    const topicPipeline = [
+      Object.keys(match).length ? { $match: match } : null,
+      {
+        $group: {
+          _id: { title: "$dictationTitle", category: "$dictationType" },
+          usageCount: { $sum: 1 }
+        }
+      },
+      { $sort: { usageCount: -1 } },
+      { $limit: Number(limit) },
+      {
+        $project: {
+          _id: 0,
+          title: "$_id.title",
+          category: "$_id.category",
+          usageCount: 1
+        }
+      }
+    ].filter(Boolean);
+
+    const [topCategories, topTopics] = await Promise.all([
+      UserDictationSubmission.aggregate(categoryPipeline),
+      UserDictationSubmission.aggregate(topicPipeline)
+    ]);
+
+    res.status(200).json({
+      success: true,
+      filters: { from: from || null, to: to || null, limit: Number(limit) },
+      topCategories,
+      topTopics
+    });
+  } catch (error) {
+    console.error("Error in getDictationUsageAnalytics:", error);
+    res.status(500).json({ message: "Failed to compute dictation usage analytics", error: error.message });
+  }
+};

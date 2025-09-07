@@ -40,6 +40,7 @@ const {
     updateTypingMatter,
     deleteTypingMatter,
 } = require('../controllers/typingTestController');
+const { getDictationUsageAnalytics } = require('../controllers/userDictationsubmissionController');
 
 
 // ✅ Admin Login Routes
@@ -92,6 +93,9 @@ router.delete('/dictations/:id', adminAuth, deleteDictation);
 router.post('/typing-matter', adminAuth, createTypingMatter);
 router.put('/typing-matter/:id', adminAuth, updateTypingMatter);
 router.delete('/typing-matter/:id', adminAuth, deleteTypingMatter);
+
+// Analytics: Dictation usage by category and topic (title)
+router.get('/analytics/dictations-usage', adminAuth, getDictationUsageAnalytics);
 
 
 module.exports = router;
