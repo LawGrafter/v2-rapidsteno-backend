@@ -104,6 +104,34 @@ exports.getAllUsers = async (req, res) => {
   }
 };
 
+// PUT /api/admin/users/:id/crm
+// Updates only CRM/Admin fields safely
+exports.updateUserCrmFields = async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    // Whitelisted CRM fields
+    const allowed = ['DNC', 'Comment', 'SubscriptionPlanType', 'AmountPaid', 'LeadType'];
+    const updates = {};
+
+    for (const key of allowed) {
+      if (Object.prototype.hasOwnProperty.call(req.body, key)) {
+        updates[key] = key === 'AmountPaid' && req.body[key] !== undefined
+          ? Number(req.body[key])
+          : req.body[key];
+      }
+    }
+
+    const user = await User.findByIdAndUpdate(userId, updates, { new: true });
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    return res.status(200).json({ message: 'CRM fields updated successfully', user });
+  } catch (error) {
+    console.error('Admin CRM update error:', error);
+    return res.status(500).json({ message: 'Failed to update CRM fields', error });
+  }
+};
+
 // ✅ Delete User by ID — Admin Only
 exports.deleteUserById = async (req, res) => {
   try {

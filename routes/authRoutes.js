@@ -7,6 +7,7 @@ const {
   getFilteredUsers,
   getUserById,
   getSelfUserById,
+  getSelfSubscriptionAndCrmFields,
   deleteUserById,
   deleteAllUsers,
   updateUserProfile,
@@ -50,6 +51,8 @@ router.get('/users/filter', adminProtect, getFilteredUsers);
 router.get('/users/:id', adminProtect, getUserById);
 
 router.get('/check-user-tour/:id', userProtect, getSelfUserById);
+// ✅ Get subscription + CRM fields for Settings page (self only)
+router.get('/self/:id/subscription-crm', userProtect, getSelfSubscriptionAndCrmFields);
 
 // ✅ Delete a single user
 router.delete('/users/:id', adminProtect, deleteUserById);
