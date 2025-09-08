@@ -38,16 +38,16 @@ const UserSchema = new mongoose.Schema({
   password: { type: String, required: true, minlength: 6 },
   gender: { type: String, required: true, enum: ['Male', 'Female', 'Other'] },
   subscriptionType: {
-  type: String,
-  enum: ['Trial', 'Unpaid', 'Paid'],
-  default: 'Trial'
-},
+    type: String,
+    enum: ['Trial', 'Unpaid', 'Paid'],
+    default: 'Trial'
+  },
 
-subscriptionHistory: [{
-  type: { type: String, enum: ['Trial', 'Unpaid', 'Paid'] },
-  startDate: Date,
-  endDate: Date,
-}],
+  subscriptionHistory: [{
+    type: { type: String, enum: ['Trial', 'Unpaid', 'Paid'] },
+    startDate: Date,
+    endDate: Date,
+  }],
 
   examCategory: { type: String, enum: ['Court Exams', 'SSC & other exams'], default: 'Other' },
   isRepeatUser: { type: Boolean, default: false },
@@ -60,46 +60,52 @@ subscriptionHistory: [{
   trialExpiresAt: { type: Date },
   paidUntil: { type: Date },
 
- state: {
+  state: {
     type: String,
     default: ""
   },
 
   otp: { type: String },
-otpExpiresAt: { type: Date },
-isEmailVerified: { type: Boolean, default: false },
-sessionToken: { type: String },
-loginCount: { type: Number, default: 0 },
-hasSeenGrowthTour: { type: Boolean, default: false },
-hasSeenComparisonTour: { type: Boolean, default: false },
+  otpExpiresAt: { type: Date },
+  isEmailVerified: { type: Boolean, default: false },
+  sessionToken: { type: String },
+  loginCount: { type: Number, default: 0 },
+  hasSeenGrowthTour: { type: Boolean, default: false },
+  hasSeenComparisonTour: { type: Boolean, default: false },
 
-seenNotificationIds: {
-  type: [String],
-  default: [],
-},
+  seenNotificationIds: {
+    type: [String],
+    default: [],
+  },
 
-termConditions: {
-  type: Boolean,
-  required: true
-},
-referralCode: {
-  type: String,
-  default: ''
-},
-sourceOfDiscovery: {
-  type: String,
-  default: ''
-},
-ipAddress: {
-  type: String,
-},
+  termConditions: {
+    type: Boolean,
+    required: true
+  },
+  referralCode: {
+    type: String,
+    default: ''
+  },
+  sourceOfDiscovery: {
+    type: String,
+    default: ''
+  },
+  ipAddress: {
+    type: String,
+  },
 
   activityLogs: [DailyActivitySchema],
   pageViewStats: [{
-  page: String,
-  count: { type: Number, default: 1 }
-}],
+    page: String,
+    count: { type: Number, default: 1 }
+  }],
 
+  // CRM/Admin additional fields
+  DNC: { type: String, default: '' },
+  Comment: { type: String, default: '' },
+  SubscriptionPlanType: { type: String, default: '' },
+  AmountPaid: { type: Number, default: 0 },
+  LeadType: { type: String, default: '' },
 }, { timestamps: true });
 
 // Hash password before saving

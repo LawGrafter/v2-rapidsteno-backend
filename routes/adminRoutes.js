@@ -54,6 +54,8 @@ router.post('/mark-paid', adminController.markUserAsPaid);
 router.get('/admin/users', adminAuth, adminController.getAllUsers);
 router.delete('/users/:id', adminAuth, adminController.deleteUserById);
 router.put('/edit-user/:id', adminAuth, adminController.editUserByAdmin);
+// ✅ Update only CRM fields for a user
+router.put('/users/:id/crm', adminAuth, adminController.updateUserCrmFields);
 router.get('/online-users', adminController.getOnlineUsers);
 
 

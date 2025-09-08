@@ -89,6 +89,12 @@ exports.register = async (req, res) => {
       state,
       currentShorthandWPM: currentShorthandWPM !== undefined ? Number(currentShorthandWPM) : undefined,
       sourceOfDiscovery: cleanSourceOfDiscovery,
+      // CRM/Admin additional fields (explicit defaults on registration)
+      DNC: '',
+      Comment: '',
+      SubscriptionPlanType: '',
+      AmountPaid: 0,
+      LeadType: '',
     });
 
     await user.save();
@@ -152,6 +158,29 @@ exports.register = async (req, res) => {
     });
 
   } catch (error) {
+    res.status(500).json({ message: 'Server Error', error });
+  }
+};
+
+// ✅ Get only subscription + CRM fields for Settings page (self only)
+exports.getSelfSubscriptionAndCrmFields = async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    // Ensure the logged-in user is fetching their own data
+    if (req.user._id.toString() !== userId) {
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+
+    const user = await User.findById(userId).select(
+      'subscriptionType trialExpiresAt paidUntil DNC Comment SubscriptionPlanType AmountPaid LeadType'
+    );
+
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    res.status(200).json(user);
+  } catch (error) {
+    console.error('Fetch Self Subscription/CRM Error:', error);
     res.status(500).json({ message: 'Server Error', error });
   }
 };
@@ -653,6 +682,12 @@ exports.verifyOtpAndRegister = async (req, res) => {
       ipAddress: req.headers['x-forwarded-for'] || req.socket.remoteAddress,
       currentShorthandWPM: currentShorthandWPM !== undefined ? Number(currentShorthandWPM) : undefined,
       sourceOfDiscovery: cleanSourceOfDiscovery,
+      // CRM/Admin additional fields (explicit defaults on registration via OTP)
+      DNC: '',
+      Comment: '',
+      SubscriptionPlanType: '',
+      AmountPaid: 0,
+      LeadType: '',
     });
 
     await user.save();
