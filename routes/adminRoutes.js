@@ -58,6 +58,10 @@ router.put('/edit-user/:id', adminAuth, adminController.editUserByAdmin);
 router.put('/users/:id/crm', adminAuth, adminController.updateUserCrmFields);
 router.get('/online-users', adminController.getOnlineUsers);
 
+// ✅ Subscription management
+router.post('/users/:id/subscription', adminAuth, adminController.adminSetUserSubscription);
+router.patch('/users/:id/subscription-dates', adminAuth, adminController.adminUpdateUserSubscriptionDates);
+
 
 // ✅ NEW: Get user by email
 router.get('/user-by-email/:email', adminAuth, async (req, res) => {

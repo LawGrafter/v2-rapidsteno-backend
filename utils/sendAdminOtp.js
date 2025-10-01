@@ -1,12 +1,4 @@
-const nodemailer = require('nodemailer');
-
-const transporter = nodemailer.createTransport({
-  service: 'Gmail',
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS
-  }
-});
+const transporter = require('./emailTransporter');
 
 exports.sendAdminOtp = async (email, otp) => {
   const mailOptions = {

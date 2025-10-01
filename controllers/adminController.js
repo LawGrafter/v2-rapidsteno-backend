@@ -3,6 +3,7 @@ const SECRET_KEY = process.env.JWT_SECRET;
 const User = require('../models/userModel');
 const admin = require('../models/adminModel');
 const { sendAdminOtp } = require('../utils/sendAdminOtp');
+const { computeNextCycle, validatePlanAndMonths, computeCycleWithMonths } = require('../utils/subscriptionUtils');
 
 const otpStore = {}; // In-memory OTP store
 
@@ -168,30 +169,28 @@ exports.deleteUserById = async (req, res) => {
 // ✅ Admin marks user as Paid (⏱ 5-minute access)
 exports.markUserAsPaid = async (req, res) => {
   try {
-    const { userId } = req.body;
+    const { userId, planType } = req.body; // optional planType override: 'Gold' | 'Silver'
     const user = await User.findById(userId);
 
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    const now = new Date();
-   // const paidUntil = new Date(now.getTime() + 5 * 60 * 1000); // 5 minutes from now
-   //const paidUntil = new Date(now.getTime() + 48 * 60 * 60 * 1000); // 48 hours from now
-const paidUntil = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days from now
+    // Compute next cycle using user's SubscriptionPlanType or override
+    const { startDate, endDate, days } = computeNextCycle(user, planType);
 
     user.subscriptionType = 'Paid';
-    user.paidUntil = paidUntil;
+    user.paidUntil = endDate;
 
     // ⏳ Log history for future reference
     user.subscriptionHistory.push({
       type: 'Paid',
-      startDate: now,
-      endDate: paidUntil,
+      startDate: startDate,
+      endDate: endDate,
     });
 
     await user.save();
 
     res.status(200).json({
-      message: `User marked as Paid. Access valid until ${paidUntil.toLocaleTimeString()}`,
+      message: `User marked as Paid for ${days} days. Access valid until ${endDate.toISOString()}`,
     });
 
   } catch (error) {
@@ -234,5 +233,93 @@ exports.editUserByAdmin = async (req, res) => {
   } catch (error) {
     console.error("Admin edit error:", error);
     res.status(500).json({ message: "Failed to update user", error });
+  }
+};
+
+// ✅ Admin: Set user subscription plan and duration
+exports.adminSetUserSubscription = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const { planType, months, startDate } = req.body;
+
+    const validation = validatePlanAndMonths(planType, months);
+    if (!validation.ok) {
+      return res.status(400).json({ message: validation.reason });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const cycle = computeCycleWithMonths(startDate, months);
+
+    user.subscriptionType = 'Paid';
+    user.SubscriptionPlanType = validation.plan; // store normalized
+    user.paidUntil = cycle.endDate;
+
+    user.subscriptionHistory.push({
+      type: 'Paid',
+      startDate: cycle.startDate,
+      endDate: cycle.endDate,
+    });
+
+    await user.save();
+
+    return res.status(200).json({
+      message: 'Subscription updated successfully',
+      user: {
+        id: user._id,
+        email: user.email,
+        subscriptionType: user.subscriptionType,
+        planType: user.SubscriptionPlanType,
+        paidUntil: user.paidUntil,
+      }
+    });
+  } catch (error) {
+    console.error('Admin set subscription error:', error);
+    return res.status(500).json({ message: 'Server Error', error });
+  }
+};
+
+// ✅ Admin: Update user subscription start/end dates (flexible)
+exports.adminUpdateUserSubscriptionDates = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const { startDate, endDate, months } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    let start = startDate ? new Date(startDate) : null;
+    let end = endDate ? new Date(endDate) : null;
+
+    if (!end) {
+      // If end not provided, compute from months or default 30 days
+      const monthsNum = months ? Number(months) : 1;
+      const cycle = computeCycleWithMonths(start || new Date(), monthsNum);
+      start = cycle.startDate;
+      end = cycle.endDate;
+    }
+
+    // Apply updates
+    if (start) {
+      user.subscriptionHistory.push({ type: 'Paid', startDate: start, endDate: end });
+    }
+    user.subscriptionType = 'Paid';
+    user.paidUntil = end;
+
+    await user.save();
+
+    return res.status(200).json({
+      message: 'Subscription dates updated successfully',
+      user: {
+        id: user._id,
+        email: user.email,
+        paidUntil: user.paidUntil,
+        lastHistory: user.subscriptionHistory[user.subscriptionHistory.length - 1]
+      }
+    });
+  } catch (error) {
+    console.error('Admin update subscription dates error:', error);
+    return res.status(500).json({ message: 'Server Error', error });
   }
 };

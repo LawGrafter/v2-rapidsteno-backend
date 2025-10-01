@@ -7,6 +7,7 @@ const UAParser = require('ua-parser-js');
 const sendWelcomeEmail = require('../utils/sendWelcomeEmail');
 const notifyAdminOfRegistration = require('../utils/sendAdminNotification');
 const { addToBrevoList } = require('../utils/brevo');
+const { validatePlanAndMonths, computeCycleWithMonths } = require('../utils/subscriptionUtils');
 
 // Helper to safely build a regex from user input
 function escapeRegex(str) {
@@ -105,6 +106,9 @@ exports.register = async (req, res) => {
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
+      },
+      tls: {
+        rejectUnauthorized: false,
       },
     });
 
@@ -410,6 +414,9 @@ exports.verifyOtp = async (req, res) => {
           user: process.env.SMTP_USER,
           pass: process.env.SMTP_PASS,
         },
+        tls: {
+          rejectUnauthorized: false,
+        },
       });
 
       // Use the same beautiful HTML template from your other function
@@ -533,6 +540,9 @@ exports.sendOtp = async (req, res) => {
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
+    },
+    tls: {
+      rejectUnauthorized: false,
     },
   });
 
@@ -726,6 +736,49 @@ exports.verifyOtpAndRegister = async (req, res) => {
   } catch (err) {
     console.error("❌ Registration Error:", err.message);
     res.status(500).json({ message: 'Registration failed', error: err.message });
+  }
+};
+
+// ✅ User: Set subscription plan and duration
+exports.setUserSubscriptionPlan = async (req, res) => {
+  try {
+    const { planType, months } = req.body;
+
+    const validation = validatePlanAndMonths(planType, months);
+    if (!validation.ok) {
+      return res.status(400).json({ message: validation.reason });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const cycle = computeCycleWithMonths(new Date(), months);
+
+    user.subscriptionType = 'Paid';
+    user.SubscriptionPlanType = validation.plan; // normalized plan string
+    user.paidUntil = cycle.endDate;
+
+    user.subscriptionHistory.push({
+      type: 'Paid',
+      startDate: cycle.startDate,
+      endDate: cycle.endDate,
+    });
+
+    await user.save();
+
+    return res.status(200).json({
+      message: 'Subscription plan set successfully',
+      user: {
+        id: user._id,
+        email: user.email,
+        subscriptionType: user.subscriptionType,
+        planType: user.SubscriptionPlanType,
+        paidUntil: user.paidUntil,
+      }
+    });
+  } catch (error) {
+    console.error('Set user subscription plan error:', error);
+    return res.status(500).json({ message: 'Server Error', error });
   }
 };
 
