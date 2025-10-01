@@ -1,6 +1,8 @@
 const axios = require('axios');
+const https = require('https');
 const Payment = require('../models/paymentMonthly');
 const User = require('../models/userModel');
+const { computeNextCycle } = require('../utils/subscriptionUtils');
 
 // ✅ 1. Create Instamojo Payment
 // exports.createPayment = async (req, res) => {
@@ -56,7 +58,8 @@ exports.createPayment = async (req, res) => {
       headers: {
         "X-Api-Key": process.env.INSTAMOJO_API_KEY,
         "X-Auth-Token": process.env.INSTAMOJO_AUTH_TOKEN
-      }
+      },
+      httpsAgent: new https.Agent({ rejectUnauthorized: false })
     });
 
     res.status(200).json({ paymentRequest: response.data.payment_request });
@@ -133,7 +136,8 @@ exports.verifyPayment = async (req, res) => {
       headers: {
         "X-Api-Key": process.env.INSTAMOJO_API_KEY,
         "X-Auth-Token": process.env.INSTAMOJO_AUTH_TOKEN
-      }
+      },
+      httpsAgent: new https.Agent({ rejectUnauthorized: false })
     });
 
     const payment = response.data.payment;
@@ -149,22 +153,27 @@ exports.verifyPayment = async (req, res) => {
         purpose: payment.purpose,
       });
 
-      const newExpiry = new Date();
-      newExpiry.setDate(newExpiry.getDate() + 30);
+      // Fetch user to compute plan-based cycle (Gold=90, Silver=30)
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found for subscription update" });
+      }
+
+      const { startDate, endDate, days } = computeNextCycle(user);
 
       await User.findByIdAndUpdate(userId, {
         subscriptionType: 'Paid',
-        paidUntil: newExpiry,
+        paidUntil: endDate,
         $push: {
           subscriptionHistory: {
             type: 'Paid',
-            startDate: new Date(),
-            endDate: newExpiry,
+            startDate: startDate,
+            endDate: endDate,
           }
         }
       });
 
-      return res.status(200).json({ message: "✅ Payment verified. Subscription updated till 30 days." });
+      return res.status(200).json({ message: `✅ Payment verified. Subscription updated for ${days} days.` });
     } else {
       return res.status(400).json({ message: "❌ Payment failed or not completed." });
     }

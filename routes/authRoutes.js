@@ -14,7 +14,7 @@ const {
   // forgotPassword
 } = require('../controllers/authController');
 
-const { verifyOtp, trackUserActivity, forgotPassword, resetPassword, sendOtp, markTourAsSeen, markComparisonTourAsSeen, markNotificationAsSeen, verifyOtpAndRegister } = require("../controllers/authController");
+const { verifyOtp, trackUserActivity, forgotPassword, resetPassword, sendOtp, markTourAsSeen, markComparisonTourAsSeen, markNotificationAsSeen, verifyOtpAndRegister, setUserSubscriptionPlan } = require("../controllers/authController");
 const { userProtect } = require("../middleware/userMiddleware");
 const checkUserActivity = require('../middleware/checkUserActivity');
 const adminProtect = require("../middleware/authMiddleware");
@@ -31,6 +31,8 @@ router.put('/users/:id/mark-comparison-tour-seen', userProtect, markComparisonTo
 router.put('/users/:userId/mark-notification-seen/:notificationId', markNotificationAsSeen);
 
 router.put('/update-profile/:id', userProtect, updateUserProfile);
+// ✅ User sets subscription plan and duration (silver/gold/ahc/diamond)
+router.post('/users/me/subscription', userProtect, setUserSubscriptionPlan);
 
 router.post('/track-activity', trackUserActivity);
 

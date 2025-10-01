@@ -11,6 +11,9 @@ const sendWelcomeEmail = async (email, firstName) => {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
     },
+    tls: {
+      rejectUnauthorized: false,
+    },
   });
 
   const htmlPath = path.join(__dirname, "welcomeTemplate.html");
