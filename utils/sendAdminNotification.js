@@ -13,6 +13,7 @@ const notifyAdminOfRegistration = async (user) => {
       <p><strong>State:</strong> ${user.state || 'Not Provided'}</p>
       <p><strong>Source of Discovery:</strong> ${user.sourceOfDiscovery || 'Not Provided'}</p>
       <p><strong>Exam Category:</strong> ${user.examCategory}</p>
+      <p><strong>Referral Code:</strong> ${user.referralCode}</p>
       <p><strong>Registration Time:</strong> ${new Date().toLocaleString()}</p>
     `,
   };
