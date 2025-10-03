@@ -53,7 +53,7 @@ app.use("/api/newsfeed", newsFeedRoutes);
 app.use("/api/compare", compareRoutes);
 app.use('/api/pitmanExercises', pitmanRoutes);
 app.use('/api/payments', paymentRoutes);
-app.use("/api/pitmanUserSubmission", pitmanUserSubmissionRoutes);
+app.use("/api/pitman", pitmanUserSubmissionRoutes);
 app.use('/api/paymentMonthly', paymentMonthlyRoutes);
 app.use("/api/questions", questionRoutes);
 app.use("/api/mcq-submissions", mcqSubmissionRoutes);

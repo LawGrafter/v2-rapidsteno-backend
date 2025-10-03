@@ -52,6 +52,72 @@ exports.submitPitmanExercise = async (req, res) => {
   }
 };
 
+// @desc    Get Pitman learning exercises data
+// @route   GET /api/pitman/learning
+// @access  Protected (User)
+exports.getPitmanLearningExercises = async (req, res) => {
+  try {
+    const { exerciseNo, page = 1, limit = 10 } = req.query;
+    
+    // Build query filter
+    const filter = {};
+    if (exerciseNo) {
+      const exNo = parseInt(exerciseNo, 10);
+      if (Number.isNaN(exNo)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "exerciseNo must be a valid number" 
+        });
+      }
+      filter.exerciseNo = exNo;
+    }
+    
+    // Calculate pagination
+    const pageNum = Math.max(1, parseInt(page, 10));
+    const limitNum = Math.max(1, Math.min(50, parseInt(limit, 10))); // Max 50 per page
+    const skip = (pageNum - 1) * limitNum;
+    
+    // Get exercises with pagination
+    const exercises = await PitmanExercise.find(filter)
+      .select('exerciseNo exerciseText imageLink')
+      .sort({ exerciseNo: 1 })
+      .skip(skip)
+      .limit(limitNum)
+      .lean();
+    
+    // Get total count for pagination info
+    const totalExercises = await PitmanExercise.countDocuments(filter);
+    const totalPages = Math.ceil(totalExercises / limitNum);
+    
+    // Format response data
+    const formattedExercises = exercises.map(exercise => ({
+      exerciseNo: exercise.exerciseNo,
+      content: exercise.exerciseText,
+      imageLink: exercise.imageLink
+    }));
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        exercises: formattedExercises,
+        pagination: {
+          currentPage: pageNum,
+          totalPages,
+          totalExercises,
+          hasNextPage: pageNum < totalPages,
+          hasPrevPage: pageNum > 1
+        }
+      }
+    });
+  } catch (err) {
+    console.error("Pitman Learning Exercises Error:", err.message);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to fetch Pitman learning exercises", 
+      error: err.message 
+    });
+  }
+};
 
 // ✅ New: Get all Pitman submissions for a specific user
 exports.getUserPitmanSubmissions = async (req, res) => {
@@ -167,4 +233,11 @@ exports.getPitmanExerciseAggregates = async (req, res) => {
     console.error("Aggregation Error:", err);
     return res.status(500).json({ success: false, message: "Failed to aggregate submissions", error: err.message });
   }
+};
+
+module.exports = {
+  submitPitmanExercise: exports.submitPitmanExercise,
+  getUserPitmanSubmissions: exports.getUserPitmanSubmissions,
+  getPitmanExerciseAggregates: exports.getPitmanExerciseAggregates,
+  getPitmanLearningExercises: exports.getPitmanLearningExercises
 };
