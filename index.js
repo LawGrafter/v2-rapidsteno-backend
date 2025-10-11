@@ -18,6 +18,7 @@ const questionRoutes = require("./routes/questionRoutes");
 const mcqSubmissionRoutes = require("./routes/mcqSubmissionRoutes");
 const typingTestRoutes = require('./routes/typingTestRoutes');
 const formattingTestRoutes = require('./routes/formattingTestRoutes');
+const selfPracticeRoutes = require('./routes/selfPracticeRoutes');
 
 require('./utils/trialExpiryJob'); // <--- ⏳ Run every minute to expire Trial users
 
@@ -59,6 +60,7 @@ app.use("/api/questions", questionRoutes);
 app.use("/api/mcq-submissions", mcqSubmissionRoutes);
 app.use('/api/typing-test', typingTestRoutes);
 app.use('/api/formatting-test', formattingTestRoutes);
+app.use('/api/self-practice', selfPracticeRoutes);
 
 // Trust proxy to get correct client IP when behind a reverse proxy (like Nginx, Vercel, etc.)
 app.set('trust proxy', true);
