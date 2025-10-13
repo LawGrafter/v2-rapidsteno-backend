@@ -1,3 +1,4 @@
+const asyncHandler = require('express-async-handler');
 const SelfPracticeSubmission = require('../models/SelfPracticeSubmission');
 const User = require('../models/userModel');
 
@@ -9,7 +10,7 @@ function normalizeArray(input) {
   return []; // fallback
 }
 
-exports.submitSelfPractice = async (req, res) => {
+const submitSelfPractice = asyncHandler(async (req, res) => {
   try {
     const {
       userId,
@@ -95,4 +96,26 @@ exports.submitSelfPractice = async (req, res) => {
     console.error('SelfPractice Submit Error:', error);
     return res.status(500).json({ message: 'Server error', error: error.message });
   }
+});
+
+const getAllSelfPracticeSubmissions = asyncHandler(async (req, res) => {
+  try {
+    const submissions = await SelfPracticeSubmission.find()
+      .populate('user', 'firstName lastName contactNumber')
+      .sort({ submittedAt: -1 });
+
+    if (!submissions) {
+      return res.status(404).json({ message: 'No self-practice submissions found' });
+    }
+
+    res.status(200).json(submissions);
+  } catch (error) {
+    console.error('Error fetching self-practice submissions:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+module.exports = {
+  submitSelfPractice,
+  getAllSelfPracticeSubmissions,
 };

@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { submitSelfPractice } = require('../controllers/selfPracticeController');
+const { submitSelfPractice, getAllSelfPracticeSubmissions } = require('../controllers/selfPracticeController');
 const { userProtect } = require('../middleware/userMiddleware');
+const adminProtect = require('../middleware/adminMiddleware');
 
-// Save self-practice submission
 router.post('/', userProtect, submitSelfPractice);
+router.get('/all', adminProtect, getAllSelfPracticeSubmissions);
 
 module.exports = router;
