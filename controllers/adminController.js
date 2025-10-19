@@ -3,7 +3,7 @@ const SECRET_KEY = process.env.JWT_SECRET;
 const User = require('../models/userModel');
 const admin = require('../models/adminModel');
 const { sendAdminOtp } = require('../utils/sendAdminOtp');
-const { computeNextCycle, validatePlanAndMonths, computeCycleWithMonths } = require('../utils/subscriptionUtils');
+const { computeNextCycle, validatePlanAndMonths, computeCycleWithMonths, validatePlanAndDays, computeCycleWithDays } = require('../utils/subscriptionUtils');
 
 const otpStore = {}; // In-memory OTP store
 
@@ -240,17 +240,31 @@ exports.editUserByAdmin = async (req, res) => {
 exports.adminSetUserSubscription = async (req, res) => {
   try {
     const userId = req.params.id;
-    const { planType, months, startDate } = req.body;
+    const { planType, months, startDate, days } = req.body;
 
-    const validation = validatePlanAndMonths(planType, months);
-    if (!validation.ok) {
-      return res.status(400).json({ message: validation.reason });
+    let validation;
+    let durationDays;
+
+    if (days !== undefined) {
+      validation = validatePlanAndDays(planType, days);
+      if (!validation.ok) {
+        return res.status(400).json({ message: validation.reason });
+      }
+      durationDays = validation.days;
+    } else {
+      validation = validatePlanAndMonths(planType, months);
+      if (!validation.ok) {
+        return res.status(400).json({ message: validation.reason });
+      }
+      durationDays = validation.days;
     }
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    const cycle = computeCycleWithMonths(startDate, months);
+    const cycle = days !== undefined
+      ? computeCycleWithDays(startDate, durationDays)
+      : computeCycleWithMonths(startDate, months);
 
     user.subscriptionType = 'Paid';
     user.SubscriptionPlanType = validation.plan; // store normalized
@@ -284,7 +298,7 @@ exports.adminSetUserSubscription = async (req, res) => {
 exports.adminUpdateUserSubscriptionDates = async (req, res) => {
   try {
     const userId = req.params.id;
-    const { startDate, endDate, months } = req.body;
+    const { startDate, endDate, months, days } = req.body;
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
@@ -293,14 +307,18 @@ exports.adminUpdateUserSubscriptionDates = async (req, res) => {
     let end = endDate ? new Date(endDate) : null;
 
     if (!end) {
-      // If end not provided, compute from months or default 30 days
-      const monthsNum = months ? Number(months) : 1;
-      const cycle = computeCycleWithMonths(start || new Date(), monthsNum);
-      start = cycle.startDate;
-      end = cycle.endDate;
+      if (days !== undefined) {
+        const cycle = computeCycleWithDays(start || new Date(), Number(days));
+        start = cycle.startDate;
+        end = cycle.endDate;
+      } else {
+        const monthsNum = months ? Number(months) : 1;
+        const cycle = computeCycleWithMonths(start || new Date(), monthsNum);
+        start = cycle.startDate;
+        end = cycle.endDate;
+      }
     }
 
-    // Apply updates
     if (start) {
       user.subscriptionHistory.push({ type: 'Paid', startDate: start, endDate: end });
     }

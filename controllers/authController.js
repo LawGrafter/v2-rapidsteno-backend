@@ -7,7 +7,7 @@ const UAParser = require('ua-parser-js');
 const sendWelcomeEmail = require('../utils/sendWelcomeEmail');
 const notifyAdminOfRegistration = require('../utils/sendAdminNotification');
 const { addToBrevoList } = require('../utils/brevo');
-const { validatePlanAndMonths, computeCycleWithMonths } = require('../utils/subscriptionUtils');
+const { validatePlanAndMonths, computeCycleWithMonths, validatePlanAndDays, computeCycleWithDays } = require('../utils/subscriptionUtils');
 
 // Helper to safely build a regex from user input
 function escapeRegex(str) {
@@ -742,17 +742,29 @@ exports.verifyOtpAndRegister = async (req, res) => {
 // ✅ User: Set subscription plan and duration
 exports.setUserSubscriptionPlan = async (req, res) => {
   try {
-    const { planType, months } = req.body;
+    const { planType, months, days } = req.body;
 
-    const validation = validatePlanAndMonths(planType, months);
-    if (!validation.ok) {
-      return res.status(400).json({ message: validation.reason });
+    let validation;
+    let durationDays;
+
+    if (days !== undefined) {
+      validation = validatePlanAndDays(planType, days);
+      if (!validation.ok) {
+        return res.status(400).json({ message: validation.reason });
+      }
+      durationDays = validation.days;
+    } else {
+      validation = validatePlanAndMonths(planType, months);
+      if (!validation.ok) {
+        return res.status(400).json({ message: validation.reason });
+      }
+      durationDays = validation.days;
     }
 
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    const cycle = computeCycleWithMonths(new Date(), months);
+    const cycle = computeCycleWithDays(new Date(), durationDays);
 
     user.subscriptionType = 'Paid';
     user.SubscriptionPlanType = validation.plan; // normalized plan string
