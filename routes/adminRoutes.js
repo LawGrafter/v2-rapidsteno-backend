@@ -62,6 +62,8 @@ router.get('/online-users', adminController.getOnlineUsers);
 router.post('/users/:id/subscription', adminAuth, adminController.adminSetUserSubscription);
 router.patch('/users/:id/subscription-dates', adminAuth, adminController.adminUpdateUserSubscriptionDates);
 
+// ✅ Admin Weekly Report for a specific user
+router.get('/users/:id/weekly-report', adminAuth, adminController.adminWeeklyUserReport);
 
 // ✅ NEW: Get user by email
 router.get('/user-by-email/:email', adminAuth, async (req, res) => {

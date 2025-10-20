@@ -32,10 +32,17 @@ const app = express();
 // ✅ Fix: Properly Configure CORS
 app.use(
   cors({
-    origin: ["http://localhost:3000", "https://www.rapidsteno.in", "https://rapidstenographer.vercel.app", "https://rapidsteno.vercel.app", "https://rapid-steno-api.vercel.app"], // Allow frontend domains
-    methods: "GET,POST,PUT,DELETE,PATCH",
-    // allowedHeaders: "Content-Type,Authorization",
+    origin: [
+      "http://localhost:3000",
+      "https://www.rapidsteno.in",
+      "https://rapidstenographer.vercel.app",
+      "https://rapidsteno.vercel.app",
+      "https://rapid-steno-api.vercel.app"
+    ], // Allow frontend domains
+    methods: "GET,POST,PUT,DELETE,PATCH,OPTIONS",
     allowedHeaders: ["Content-Type", "Authorization", "x-session-token"],
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   })
 );
 
@@ -75,7 +82,7 @@ app.set('trust proxy', true);
 
 //  //cron.schedule('*/1 * * * *', () => {
 // cron.schedule('0 */6 * * *', () => {
-
+// 
 //   console.log("📤 Scheduled: Sending performance reports...");
 //   autoReportMailer();
 // });
@@ -90,4 +97,10 @@ app.set('trust proxy', true);
 
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+// ✅ Export for Vercel serverless, use listen only locally
+if (process.env.VERCEL) {
+  module.exports = app;
+} else {
+  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+}

@@ -14,7 +14,7 @@ const {
   // forgotPassword
 } = require('../controllers/authController');
 
-const { verifyOtp, trackUserActivity, forgotPassword, resetPassword, sendOtp, markTourAsSeen, markComparisonTourAsSeen, markNotificationAsSeen, verifyOtpAndRegister, setUserSubscriptionPlan } = require("../controllers/authController");
+const { verifyOtp, trackUserActivity, forgotPassword, resetPassword, sendOtp, markTourAsSeen, markComparisonTourAsSeen, markNotificationAsSeen, verifyOtpAndRegister, setUserSubscriptionPlan, weeklyUserReport, weeklyUserReportById } = require("../controllers/authController");
 const { userProtect } = require("../middleware/userMiddleware");
 const checkUserActivity = require('../middleware/checkUserActivity');
 const adminProtect = require("../middleware/authMiddleware");
@@ -76,5 +76,8 @@ router.get('/validate-session', userProtect, checkUserActivity, (req, res) => {
   res.status(200).json({ message: 'Session is valid' });
 });
 
+router.get('/users/me/weekly-report', userProtect, weeklyUserReport);
+// ✅ New: User-token route with userId param (self-only)
+router.get('/users/:id/weekly-report', userProtect, weeklyUserReportById);
 
 module.exports = router;
