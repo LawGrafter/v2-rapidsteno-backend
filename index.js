@@ -48,6 +48,7 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/dictations', require('./routes/dictationRoutes'));
 app.use('/api/admin', adminRoutes); // Prefix all admin routes
 app.use("/api/user/dictationSubmissions", submissionRoutes);
+app.use('/api/student-tracker', require('./routes/studentTrackerRoutes')); // Student tracker routes
 app.use("/api/feedback", feedbackRoutes);
 app.use("/api/newsfeed", newsFeedRoutes);
 app.use("/api/compare", compareRoutes);
