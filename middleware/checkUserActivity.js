@@ -13,6 +13,8 @@ const checkUserActivity = async (req, res, next) => {
     return res.status(401).json({ message: 'Logged out due to inactivity' });
   }
 
+
+  
   user.lastActiveDate = now;
   await user.save();
 
