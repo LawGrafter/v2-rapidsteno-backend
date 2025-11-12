@@ -53,10 +53,13 @@
 
 const cron = require('node-cron');
 const User = require('../models/userModel');
+const connectDB = require('../config/db');
 
 // Run every minute
 cron.schedule('* * * * *', async () => {
   try {
+    // ✅ Ensure DB is connected before running queries (safe on serverless due to caching)
+    await connectDB();
     const now = new Date();
 
     // 🔹 1. Expire Trial Users (batched)
