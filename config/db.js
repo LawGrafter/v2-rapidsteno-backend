@@ -1,26 +1,60 @@
+// // module.exports = connectDB;
+// const mongoose = require('mongoose');
+// require('dotenv').config();
+
+// const connectDB = async () => {
+//   try {
+//     await mongoose.connect(process.env.MONGO_URI);
+//     console.log('✅ MongoDB Connected...');
+//   } catch (error) {
+//     console.error('❌ MongoDB Connection Error:', error);
+//     process.exit(1);
+//   }
+// };
+
+// module.exports = connectDB;
+
+// config/db.js
 const mongoose = require('mongoose');
 require('dotenv').config();
 
+const MONGODB_URI = process.env.MONGO_URI;
+
+if (!MONGODB_URI) {
+  throw new Error('❌ Missing MONGO_URI in environment variables');
+}
+
+// Reuse cached connection in serverless (Vercel, Lambda, etc.)
+let cached = global._mongoose;
+if (!cached) {
+  cached = global._mongoose = { conn: null, promise: null };
+}
+
 const connectDB = async () => {
-  try {
-    // Reuse existing connection in serverless for performance
-    if (mongoose.connection.readyState >= 1) {
-      return;
-    }
+  if (cached.conn) return cached.conn;
 
-    const uri = process.env.MONGO_URI;
-    if (!uri) {
-      console.warn('⚠️ MONGO_URI is not set. Skipping DB connect.');
-      return; // Do not crash serverless on missing env; handle at route level if needed
-    }
-
-    await mongoose.connect(uri);
-    console.log('✅ MongoDB Connected...');
-  } catch (error) {
-    console.error('❌ MongoDB Connection Error:', error);
-    // Do NOT exit in serverless; let the request handler decide response
-    // throw error; // Optional: surface error to callers
+  if (!cached.promise) {
+    mongoose.set('strictQuery', true);
+    cached.promise = mongoose.connect(MONGODB_URI, {
+      bufferCommands: false,          // 🧠 Prevent "buffering timed out" errors
+      maxPoolSize: 5,                 // 🧩 Small pool for serverless
+      serverSelectionTimeoutMS: 10000, // ⏱ Wait max 10s for DB selection
+      socketTimeoutMS: 20000,          // ⏱ Socket inactivity timeout
+      connectTimeoutMS: 10000,         // ⏱ Initial connect timeout
+      autoIndex: false,                // 🚀 Faster startup (disable in prod)
+    })
+      .then((mongooseInstance) => {
+        console.log('✅ MongoDB connected successfully');
+        return mongooseInstance;
+      })
+      .catch((err) => {
+        console.error('❌ MongoDB connection failed:', err.message);
+        throw err;
+      });
   }
+
+  cached.conn = await cached.promise;
+  return cached.conn;
 };
 
 module.exports = connectDB;

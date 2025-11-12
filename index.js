@@ -20,12 +20,12 @@ const typingTestRoutes = require('./routes/typingTestRoutes');
 const formattingTestRoutes = require('./routes/formattingTestRoutes');
 const selfPracticeRoutes = require('./routes/selfPracticeRoutes');
 
-require('./utils/trialExpiryJob'); // <--- ⏳ Run every minute to expire Trial users
-
-
-
+// ✅ Load env and establish DB connection BEFORE scheduling background jobs
 dotenv.config();
 connectDB();
+
+// ⏳ Run every minute to expire Trial users (now after DB connected)
+require('./utils/trialExpiryJob');
 
 const app = express();
 
