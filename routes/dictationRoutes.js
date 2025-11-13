@@ -18,10 +18,12 @@ router.get('/admin/get', adminProtect, dictationController.getAllDictations);
 router.get('/admin/audio/:id', adminProtect, dictationController.getAudioById);
 
 router.get('/audio/:id', userProtect, dictationController.getAudioById);
+
+// 📦 Bulk download all audio files as ZIP
+router.get('/download/all-audio', adminProtect, dictationController.downloadAllAudio);
+
 router.get('/getbyid/:id', adminProtect, dictationController.getDictationById);
 router.put('/update/:id', adminProtect, dictationController.updateDictation);
-router.delete('/delete/:id', adminProtect, dictationController.deleteDictation);
-
 router.delete('/delete/:id', adminProtect, dictationController.deleteDictation);
 
 module.exports = router;

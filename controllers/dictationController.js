@@ -5,6 +5,7 @@ const { GridFSBucket, ObjectId } = require('mongodb');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const archiver = require('archiver');
 
 // Multer Config
 const upload = multer({
@@ -202,15 +203,210 @@ exports.getAudioById = async (req, res) => {
     const bucket = new mongoose.mongo.GridFSBucket(db, { bucketName: 'dictationFiles' });
     const fileId = new ObjectId(req.params.id);
 
-    const downloadStream = bucket.openDownloadStream(fileId);
+    // Get file metadata (length, etc.)
+    const filesColl = db.collection('dictationFiles.files');
+    const fileDoc = await filesColl.findOne({ _id: fileId });
+    if (!fileDoc) {
+      return res.status(404).json({ success: false, message: 'Audio not found' });
+    }
 
-    res.set('Content-Type', 'audio/mpeg');
-    downloadStream.pipe(res);
+    const fileSize = fileDoc.length;
+    const contentType = 'audio/mpeg';
 
-    downloadStream.on('error', () => {
-      res.status(404).json({ success: false, message: 'Audio not found' });
-    });
+    // If HEAD request, return headers only (helps frontend loader)
+    if (req.method === 'HEAD') {
+      res.set({
+        'Content-Type': contentType,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': fileSize,
+        'Cache-Control': 'public, max-age=86400'
+      });
+      return res.status(200).end();
+    }
+
+    const range = req.headers.range;
+    if (range) {
+      // Parse Range header: bytes=start-end
+      const match = range.match(/bytes=(\d+)-(\d*)/);
+      const start = match ? parseInt(match[1], 10) : 0;
+      const end = match && match[2] ? parseInt(match[2], 10) : fileSize - 1;
+      const chunkSize = (end - start) + 1;
+
+      res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunkSize,
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=86400'
+      });
+
+      const downloadStream = bucket.openDownloadStream(fileId, { start });
+      let bytesSent = 0;
+
+      downloadStream.on('data', (chunk) => {
+        if (bytesSent + chunk.length > chunkSize) {
+          const sliceLen = chunkSize - bytesSent;
+          if (sliceLen > 0) res.write(chunk.slice(0, sliceLen));
+          bytesSent += sliceLen;
+          downloadStream.destroy();
+          res.end();
+        } else {
+          res.write(chunk);
+          bytesSent += chunk.length;
+        }
+      });
+
+      downloadStream.on('error', (err) => {
+        console.error('GridFS stream error:', err);
+        if (!res.headersSent) {
+          res.status(500).json({ success: false, message: 'Audio stream error', error: err.message });
+        } else {
+          try { res.end(); } catch (_) {}
+        }
+      });
+
+      downloadStream.on('end', () => {
+        try { res.end(); } catch (_) {}
+      });
+    } else {
+      // Full file stream with Content-Length set
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': fileSize,
+        'Cache-Control': 'public, max-age=86400'
+      });
+
+      const downloadStream = bucket.openDownloadStream(fileId);
+      downloadStream.on('error', (err) => {
+        console.error('GridFS stream error:', err);
+        if (!res.headersSent) {
+          res.status(404).json({ success: false, message: 'Audio not found' });
+        } else {
+          try { res.end(); } catch (_) {}
+        }
+      });
+      downloadStream.pipe(res);
+    }
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+    console.error('getAudioById error:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: 'Server error', error: err.message });
+    }
+  }
+};
+
+// Bulk Download All Dictation Audio Files
+exports.downloadAllAudio = async (req, res) => {
+  try {
+    const { category } = req.query;
+    
+    // Build filter for dictations
+    const filter = {};
+    if (category) {
+      filter.category = category;
+    }
+
+    // Get all dictations
+    const dictations = await Dictation.find(filter).select('fileupload title category speed');
+    
+    if (dictations.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No dictations found' 
+      });
+    }
+
+    // Set response headers for ZIP download
+    const zipFileName = category ? `dictations_${category}_${Date.now()}.zip` : `all_dictations_${Date.now()}.zip`;
+    res.set({
+      'Content-Type': 'application/zip',
+      'Content-Disposition': `attachment; filename="${zipFileName}"`,
+      'Transfer-Encoding': 'chunked'
+    });
+
+    // Create ZIP archive
+    const archive = archiver('zip', {
+      zlib: { level: 1 } // Fastest compression for audio files
+    });
+
+    // Handle archive errors
+    archive.on('error', (err) => {
+      console.error('Archive error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ 
+          success: false, 
+          message: 'Error creating archive', 
+          error: err.message 
+        });
+      }
+    });
+
+    // Pipe archive to response
+    archive.pipe(res);
+
+    // Setup GridFS bucket
+    const db = mongoose.connection.db;
+    const bucket = new GridFSBucket(db, { bucketName: 'dictationFiles' });
+
+    // Process each dictation
+    let processedCount = 0;
+    let skippedCount = 0;
+    const totalCount = dictations.length;
+
+    for (const dictation of dictations) {
+      try {
+        // Create safe filename
+        const safeTitle = dictation.title.replace(/[^a-zA-Z0-9\s-_]/g, '').replace(/\s+/g, '_');
+        const fileName = `${safeTitle}_${dictation.speed}wpm_${dictation.category}.mp3`;
+
+        // Check if file exists in GridFS before trying to download
+        const fileExists = await bucket.find({ _id: new ObjectId(dictation.fileupload) }).hasNext();
+        
+        if (!fileExists) {
+          console.warn(`Skipping missing file: ${fileName} (ID: ${dictation.fileupload})`);
+          skippedCount++;
+          continue;
+        }
+
+        // Get audio stream from GridFS
+        const downloadStream = bucket.openDownloadStream(new ObjectId(dictation.fileupload));
+        
+        // Handle stream errors to prevent crashes
+        downloadStream.on('error', (streamError) => {
+          console.error(`Stream error for ${fileName}:`, streamError.message);
+          skippedCount++;
+        });
+        
+        // Add file to archive
+        archive.append(downloadStream, { name: fileName });
+
+        processedCount++;
+        console.log(`Added to archive: ${fileName} (${processedCount}/${totalCount})`);
+
+      } catch (fileError) {
+        console.error(`Error processing dictation ${dictation._id}:`, fileError.message);
+        skippedCount++;
+        // Continue with other files even if one fails
+        continue;
+      }
+    }
+
+    console.log(`Processing complete: ${processedCount} files added, ${skippedCount} files skipped`);
+
+    // Finalize the archive
+    await archive.finalize();
+    
+    console.log(`Successfully created ZIP with ${processedCount} audio files`);
+
+  } catch (err) {
+    console.error('Bulk download error:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ 
+        success: false, 
+        message: 'Server error during bulk download', 
+        error: err.message 
+      });
+    }
   }
 };

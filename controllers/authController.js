@@ -8,7 +8,13 @@ const UAParser = require('ua-parser-js');
 const sendWelcomeEmail = require('../utils/sendWelcomeEmail');
 const notifyAdminOfRegistration = require('../utils/sendAdminNotification');
 const { addToBrevoList } = require('../utils/brevo');
-const { validatePlanAndMonths, computeCycleWithMonths } = require('../utils/subscriptionUtils');
+const { validatePlanAndMonths, computeCycleWithMonths, validatePlanAndDays, computeCycleWithDays } = require('../utils/subscriptionUtils');
+const FormattingTestResult = require('../models/FormattingTestResult');
+const PitmanExerciseSubmission = require('../models/PitmanExerciseSubmission');
+const SelfPracticeSubmission = require('../models/SelfPracticeSubmission');
+const TypingRecord = require('../models/TypingRecord');
+const UserDictationSubmission = require('../models/UserDictationSubmission');
+const McqSubmission = require('../models/mcqSubmissionModel');
 
 // Helper to safely build a regex from user input
 function escapeRegex(str) {
@@ -782,17 +788,29 @@ exports.verifyOtpAndRegister = async (req, res) => {
 // ✅ User: Set subscription plan and duration
 exports.setUserSubscriptionPlan = async (req, res) => {
   try {
-    const { planType, months } = req.body;
+    const { planType, months, days } = req.body;
 
-    const validation = validatePlanAndMonths(planType, months);
-    if (!validation.ok) {
-      return res.status(400).json({ message: validation.reason });
+    let validation;
+    let durationDays;
+
+    if (days !== undefined) {
+      validation = validatePlanAndDays(planType, days);
+      if (!validation.ok) {
+        return res.status(400).json({ message: validation.reason });
+      }
+      durationDays = validation.days;
+    } else {
+      validation = validatePlanAndMonths(planType, months);
+      if (!validation.ok) {
+        return res.status(400).json({ message: validation.reason });
+      }
+      durationDays = validation.days;
     }
 
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    const cycle = computeCycleWithMonths(new Date(), months);
+    const cycle = computeCycleWithDays(new Date(), durationDays);
 
     user.subscriptionType = 'Paid';
     user.SubscriptionPlanType = validation.plan; // normalized plan string
@@ -950,5 +968,418 @@ exports.updateUserProfile = async (req, res) => {
   } catch (error) {
     console.error("Update profile error:", error);
     res.status(500).json({ message: "Server Error", error });
+  }
+};
+
+// Weekly User Report Aggregator
+exports.weeklyUserReport = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { start, end } = req.query;
+
+    // Parse dates; default to current week starting from provided start or last Monday
+    let startDate;
+    if (start) {
+      startDate = new Date(start);
+    } else {
+      const today = new Date();
+      const day = today.getDay(); // 0 Sun .. 6 Sat
+      const diffToMonday = (day === 0 ? -6 : 1) - day; // Monday as week start
+      startDate = new Date(today);
+      startDate.setDate(today.getDate() + diffToMonday);
+      startDate.setHours(0,0,0,0);
+    }
+    if (isNaN(startDate)) return res.status(400).json({ message: 'Invalid start date' });
+
+    let endDate = end ? new Date(end) : new Date(startDate);
+    if (!end) { endDate.setDate(startDate.getDate() + 6); }
+    endDate.setHours(23,59,59,999);
+
+    const toYmd = (d) => {
+      const dd = new Date(d);
+      const y = dd.getFullYear();
+      const m = String(dd.getMonth()+1).padStart(2,'0');
+      const day = String(dd.getDate()).padStart(2,'0');
+      return `${y}-${m}-${day}`;
+    };
+
+    // Prepare day buckets
+    const days = [];
+    const daysCount = Math.max(1, Math.floor((endDate - startDate) / (24*60*60*1000)) + 1);
+    for (let i = 0; i < daysCount; i++) {
+      const d = new Date(startDate);
+      d.setDate(startDate.getDate() + i);
+      days.push({
+        date: toYmd(d),
+        attendance: { status: 'Absent', punctual: false, totalActiveTimeSeconds: 0, totalPagesViewed: 0, pages: [] },
+        typing: { attempts: 0, avgWpm: 0, avgAccuracy: 0, totalErrors: 0 },
+        dictation: { attempts: 0, avgAccuracy: 0, totalMistakes: 0, breakdown: { capital: 0, spelling: 0, punctuation: 0, missing: 0, extra: 0 } },
+        formatting: { attempts: 0, avgMarksAwarded: 0, totalMistakes: 0, breakdown: { word: 0, formatting: 0, punctuation: 0 } },
+        pitman: { attempts: 0, avgAccuracy: 0, totalMistakes: 0, breakdown: { capital: 0, spelling: 0, punctuation: 0, spacing: 0, missing: 0, extra: 0 } },
+        selfPractice: { attempts: 0, avgAccuracy: 0, totalMistakes: 0, breakdown: { capital: 0, spelling: 0, punctuation: 0, spacing: 0, missing: 0, extra: 0 } },
+        mcq: { attempts: 0, avgScore: 0, avgAccuracyPercent: 0 },
+      });
+    }
+
+    // Fetch user once for activity logs
+    const user = await User.findById(userId).lean();
+    const activityLogs = Array.isArray(user?.activityLogs) ? user.activityLogs : [];
+
+    // Apply attendance per day using activityLogs
+    for (const log of activityLogs) {
+      const idx = days.findIndex(d => d.date === log.date);
+      if (idx !== -1) {
+        const attendance = days[idx].attendance;
+        attendance.status = 'Present';
+        attendance.totalActiveTimeSeconds = (attendance.totalActiveTimeSeconds || 0) + (log.totalActiveTime || 0);
+        attendance.totalPagesViewed = (attendance.totalPagesViewed || 0) + (log.totalPagesViewed || 0);
+        // Merge pages
+        const pagesMap = new Map(attendance.pages.map(p => [p.page, p]));
+        for (const p of (log.pages || [])) {
+          if (pagesMap.has(p.page)) {
+            const x = pagesMap.get(p.page);
+            x.timeSpent += (p.timeSpent || 0);
+            x.viewCount += (p.viewCount || 1);
+          } else {
+            pagesMap.set(p.page, { page: p.page, timeSpent: p.timeSpent || 0, viewCount: p.viewCount || 1 });
+          }
+        }
+        attendance.pages = Array.from(pagesMap.values());
+      }
+    }
+    // Define punctual as >= 15min of activity
+    for (const d of days) {
+      d.attendance.punctual = d.attendance.status === 'Present' && (d.attendance.totalActiveTimeSeconds >= 15*60);
+    }
+
+    // Build time range filter helper
+    const range = { $gte: startDate, $lte: endDate };
+
+    // Query all collections
+    const [selfPractice, formattingTests, pitmanSubs, typingRecords, dictationSubs, mcqSubs] = await Promise.all([
+      SelfPracticeSubmission.find({ user: userId, submittedAt: range }).lean(),
+      FormattingTestResult.find({ user: userId, createdAt: range }).lean(),
+      PitmanExerciseSubmission.find({ user: userId, submittedAt: range }).lean(),
+      TypingRecord.find({ user: userId, createdAt: range }).lean(),
+      UserDictationSubmission.find({ user: userId, submittedAt: range }).lean(),
+      McqSubmission.find({ userId: userId, submittedAt: range }).lean(),
+    ]);
+
+    const dateKey = (dt) => toYmd(dt);
+
+    // Helper to update day bucket
+    for (const rec of typingRecords) {
+      const k = dateKey(rec.createdAt);
+      const d = days.find(x=>x.date===k);
+      if (!d) continue;
+      d.typing.attempts += 1;
+      d.typing.avgWpm += rec.wpm || 0;
+      d.typing.avgAccuracy += rec.accuracy || 0;
+      d.typing.totalErrors += rec.errors || 0;
+    }
+    for (const d of days) {
+      if (d.typing.attempts>0) { d.typing.avgWpm = +(d.typing.avgWpm / d.typing.attempts).toFixed(2); d.typing.avgAccuracy = +(d.typing.avgAccuracy / d.typing.attempts).toFixed(2); }
+    }
+
+    for (const sub of dictationSubs) {
+      const k = dateKey(sub.submittedAt);
+      const d = days.find(x=>x.date===k);
+      if (!d) continue;
+      d.dictation.attempts += 1;
+      d.dictation.avgAccuracy += sub.accuracy || 0;
+      d.dictation.totalMistakes += sub.totalMistakes || 0;
+      d.dictation.breakdown.capital += sub.capitalMistakes || 0;
+      d.dictation.breakdown.spelling += sub.spellingMistakes || 0;
+      d.dictation.breakdown.punctuation += sub.punctuationMistakes ? (Array.isArray(sub.punctuationMistakes) ? sub.punctuationMistakes.length : sub.punctuationMistakes) : 0;
+      d.dictation.breakdown.missing += sub.missingWords || 0;
+      d.dictation.breakdown.extra += sub.extraWords || 0;
+    }
+    for (const d of days) {
+      if (d.dictation.attempts>0) d.dictation.avgAccuracy = +(d.dictation.avgAccuracy / d.dictation.attempts).toFixed(2);
+    }
+
+    for (const sub of formattingTests) {
+      const k = dateKey(sub.createdAt);
+      const d = days.find(x=>x.date===k);
+      if (!d) continue;
+      d.formatting.attempts += 1;
+      d.formatting.avgMarksAwarded += sub.marksAwarded || 0;
+      d.formatting.totalMistakes += sub.totalMistakes || 0;
+      d.formatting.breakdown.word += sub.wordMistakesCount || 0;
+      d.formatting.breakdown.formatting += sub.formattingMistakesCount || 0;
+      d.formatting.breakdown.punctuation += sub.punctuationMistakesCount || 0;
+    }
+    for (const d of days) {
+      if (d.formatting.attempts>0) d.formatting.avgMarksAwarded = +(d.formatting.avgMarksAwarded / d.formatting.attempts).toFixed(2);
+    }
+
+    for (const sub of pitmanSubs) {
+      const k = dateKey(sub.submittedAt);
+      const d = days.find(x=>x.date===k);
+      if (!d) continue;
+      d.pitman.attempts += 1;
+      d.pitman.avgAccuracy += sub.accuracy || 0;
+      d.pitman.totalMistakes += sub.totalMistakes || 0;
+      d.pitman.breakdown.capital += sub.capitalMistakes || 0;
+      d.pitman.breakdown.spelling += sub.spellingMistakes || 0;
+      d.pitman.breakdown.punctuation += sub.punctuationMistakes || 0;
+      d.pitman.breakdown.spacing += sub.spacingMistakes || 0;
+      d.pitman.breakdown.missing += sub.missingWords || 0;
+      d.pitman.breakdown.extra += sub.extraWords || 0;
+    }
+    for (const d of days) {
+      if (d.pitman.attempts>0) d.pitman.avgAccuracy = +(d.pitman.avgAccuracy / d.pitman.attempts).toFixed(2);
+    }
+
+    for (const sub of selfPractice) {
+      const k = dateKey(sub.submittedAt);
+      const d = days.find(x=>x.date===k);
+      if (!d) continue;
+      d.selfPractice.attempts += 1;
+      d.selfPractice.avgAccuracy += sub.accuracy || 0;
+      d.selfPractice.totalMistakes += sub.totalMistakes || 0;
+      d.selfPractice.breakdown.capital += sub.capitalMistakes || 0;
+      d.selfPractice.breakdown.spelling += sub.spellingMistakes || 0;
+      d.selfPractice.breakdown.punctuation += sub.punctuationMistakes || 0;
+      d.selfPractice.breakdown.spacing += sub.spacingMistakes || 0;
+      d.selfPractice.breakdown.missing += sub.missingWords || 0;
+      d.selfPractice.breakdown.extra += sub.extraWords || 0;
+    }
+    for (const d of days) {
+      if (d.selfPractice.attempts>0) d.selfPractice.avgAccuracy = +(d.selfPractice.avgAccuracy / d.selfPractice.attempts).toFixed(2);
+    }
+
+    for (const sub of mcqSubs) {
+      const k = dateKey(sub.submittedAt);
+      const d = days.find(x=>x.date===k);
+      if (!d) continue;
+      d.mcq.attempts += 1;
+      d.mcq.avgScore += sub.score || 0;
+      d.mcq.avgAccuracyPercent += sub.total ? ((sub.score / sub.total) * 100) : 0;
+    }
+    for (const d of days) {
+      if (d.mcq.attempts>0) {
+        d.mcq.avgScore = +(d.mcq.avgScore / d.mcq.attempts).toFixed(2);
+        d.mcq.avgAccuracyPercent = +(d.mcq.avgAccuracyPercent / d.mcq.attempts).toFixed(2);
+      }
+    }
+
+    // Weekly summary metrics
+    const weekly = {
+      range: { start: toYmd(startDate), end: toYmd(endDate) },
+      attendance: {
+        daysPresent: days.filter(d=>d.attendance.status==='Present').length,
+        daysAbsent: days.filter(d=>d.attendance.status==='Absent').length,
+        punctualDays: days.filter(d=>d.attendance.punctual).length,
+        totalActiveTimeSeconds: days.reduce((acc,d)=>acc + (d.attendance.totalActiveTimeSeconds||0), 0),
+      },
+      totals: {
+        typingAttempts: typingRecords.length,
+        dictationAttempts: dictationSubs.length,
+        formattingAttempts: formattingTests.length,
+        pitmanAttempts: pitmanSubs.length,
+        selfPracticeAttempts: selfPractice.length,
+        mcqAttempts: mcqSubs.length,
+      }
+    };
+
+    // Growth indicators (simple end vs start comparison where data exists)
+    const pickMetricSeries = (daysArr, path) => {
+      const vals = daysArr.map(d => {
+        const v = path.split('.').reduce((o,k)=>o && o[k], d);
+        return (Number.isFinite(v) ? v : null);
+      });
+      return vals;
+    };
+
+    const typingWpmSeries = pickMetricSeries(days, 'typing.avgWpm');
+    const typingAccSeries = pickMetricSeries(days, 'typing.avgAccuracy');
+    const dictAccSeries = pickMetricSeries(days, 'dictation.avgAccuracy');
+    const pitmanAccSeries = pickMetricSeries(days, 'pitman.avgAccuracy');
+    const selfAccSeries = pickMetricSeries(days, 'selfPractice.avgAccuracy');
+    const fmtMarksSeries = pickMetricSeries(days, 'formatting.avgMarksAwarded');
+
+    const growthFromSeries = (series) => {
+      const first = series.find(v=>v!==null && v>0);
+      const last = [...series].reverse().find(v=>v!==null && v>0);
+      if (!first || !last) return { changePercent: 0, direction: 'flat' };
+      const change = last - first;
+      const perc = first>0 ? (change/first)*100 : 0;
+      return { changePercent: +perc.toFixed(2), direction: change>0?'up':change<0?'down':'flat' };
+    };
+
+    const growth = {
+      typingWpm: growthFromSeries(typingWpmSeries),
+      typingAccuracy: growthFromSeries(typingAccSeries),
+      dictationAccuracy: growthFromSeries(dictAccSeries),
+      pitmanAccuracy: growthFromSeries(pitmanAccSeries),
+      selfPracticeAccuracy: growthFromSeries(selfAccSeries),
+      formattingMarks: growthFromSeries(fmtMarksSeries),
+    };
+
+    const overallGrowthRate = (
+      (growth.typingWpm.changePercent || 0) +
+      (growth.typingAccuracy.changePercent || 0) +
+      (growth.dictationAccuracy.changePercent || 0) +
+      (growth.pitmanAccuracy.changePercent || 0) +
+      (growth.selfPracticeAccuracy.changePercent || 0) +
+      (growth.formattingMarks.changePercent || 0)
+    ) / 6;
+
+    weekly.overallGrowthRatePercent = +overallGrowthRate.toFixed(2);
+
+    // Danger zone: top 3 mistake categories across all activities
+    const mistakeTotals = {
+      capital: 0, spelling: 0, punctuation: 0, spacing: 0, missing: 0, extra: 0
+    };
+    const addMistakes = (b) => {
+      mistakeTotals.capital += b.capital || 0;
+      mistakeTotals.spelling += b.spelling || 0;
+      mistakeTotals.punctuation += b.punctuation || 0;
+      mistakeTotals.spacing += b.spacing || 0;
+      mistakeTotals.missing += b.missing || 0;
+      mistakeTotals.extra += b.extra || 0;
+    };
+    for (const d of days) {
+      addMistakes(d.dictation.breakdown);
+      addMistakes(d.pitman.breakdown);
+      addMistakes(d.selfPractice.breakdown);
+      // formatting uses word/formatting/punctuation; map accordingly
+      mistakeTotals.punctuation += d.formatting.breakdown.punctuation || 0;
+      mistakeTotals.spelling += d.formatting.breakdown.word || 0; // treating word mistakes as spelling/missing/extra proxy
+      mistakeTotals.capital += d.formatting.breakdown.formatting || 0; // proxy for formatting discipline issues
+    }
+    const sortedDanger = Object.entries(mistakeTotals).sort((a,b)=>b[1]-a[1]);
+    const top3 = sortedDanger.slice(0,3).map(([k,v])=>({ category: k, count: v }));
+
+    // Dictation weak topics (by highest mistakes)
+    const dictationTopicAgg = {};
+    for (const sub of dictationSubs) {
+      const key = `${sub.dictationTitle}|${sub.dictationType}`;
+      dictationTopicAgg[key] = (dictationTopicAgg[key] || 0) + (sub.totalMistakes || 0);
+    }
+    const topDictationTopics = Object.entries(dictationTopicAgg).sort((a,b)=>b[1]-a[1]).slice(0,3)
+      .map(([key,count])=>{ const [title,type]=key.split('|'); return { title, type, totalMistakes: count }; });
+
+    // Suggestions based on danger zone
+    const suggestions = top3.map(t => {
+      switch (t.category) {
+        case 'punctuation': return 'Focus on punctuation: practice comma, semicolon, and full-stop exercises daily.';
+        case 'spelling': return 'Strengthen spelling: use quick revision lists and do 10-word drills.';
+        case 'capital': return 'Improve capitalization/formatting discipline: review formatting rules and apply consistently.';
+        case 'spacing': return 'Work on spacing: slow down slightly and verify word boundaries.';
+        case 'missing': return 'Reduce missing words: increase attention during dictation playback and cross-check.';
+        case 'extra': return 'Avoid extra words: type what is dictated, resist paraphrasing.';
+        default: return 'Maintain consistency across all sections; practice regularly.';
+      }
+    });
+
+    // Weekly feature summary (aggregated across week)
+    const avg = (arr) => arr.length ? +(arr.reduce((a,b)=> a + (b || 0), 0) / arr.length).toFixed(2) : 0;
+    const sum = (arr) => arr.reduce((a,b)=> a + (b || 0), 0);
+
+    const summary = {
+      typing: {
+        attempts: typingRecords.length,
+        avgWpm: avg(typingRecords.map(r=>r.wpm)),
+        avgAccuracy: avg(typingRecords.map(r=>r.accuracy)),
+        totalErrors: sum(typingRecords.map(r=>r.errors)),
+      },
+      dictation: {
+        attempts: dictationSubs.length,
+        avgAccuracy: avg(dictationSubs.map(s=>s.accuracy)),
+        totalMistakes: sum(dictationSubs.map(s=>s.totalMistakes)),
+        breakdown: {
+          capital: sum(dictationSubs.map(s=>s.capitalMistakes)),
+          spelling: sum(dictationSubs.map(s=>s.spellingMistakes)),
+          punctuation: sum(dictationSubs.map(s => Array.isArray(s.punctuationMistakes) ? s.punctuationMistakes.length : (s.punctuationMistakes || 0))),
+          missing: sum(dictationSubs.map(s=>s.missingWords)),
+          extra: sum(dictationSubs.map(s=>s.extraWords)),
+        }
+      },
+      formatting: {
+        attempts: formattingTests.length,
+        avgMarksAwarded: avg(formattingTests.map(s=>s.marksAwarded)),
+        totalMistakes: sum(formattingTests.map(s=>s.totalMistakes)),
+        breakdown: {
+          word: sum(formattingTests.map(s=>s.wordMistakesCount)),
+          formatting: sum(formattingTests.map(s=>s.formattingMistakesCount)),
+          punctuation: sum(formattingTests.map(s=>s.punctuationMistakesCount)),
+        }
+      },
+      pitman: {
+        attempts: pitmanSubs.length,
+        avgAccuracy: avg(pitmanSubs.map(s=>s.accuracy)),
+        totalMistakes: sum(pitmanSubs.map(s=>s.totalMistakes)),
+        breakdown: {
+          capital: sum(pitmanSubs.map(s=>s.capitalMistakes)),
+          spelling: sum(pitmanSubs.map(s=>s.spellingMistakes)),
+          punctuation: sum(pitmanSubs.map(s=>s.punctuationMistakes)),
+          spacing: sum(pitmanSubs.map(s=>s.spacingMistakes)),
+          missing: sum(pitmanSubs.map(s=>s.missingWords)),
+          extra: sum(pitmanSubs.map(s=>s.extraWords)),
+        }
+      },
+      selfPractice: {
+        attempts: selfPractice.length,
+        avgAccuracy: avg(selfPractice.map(s=>s.accuracy)),
+        totalMistakes: sum(selfPractice.map(s=>s.totalMistakes)),
+        breakdown: {
+          capital: sum(selfPractice.map(s=>s.capitalMistakes)),
+          spelling: sum(selfPractice.map(s=>s.spellingMistakes)),
+          punctuation: sum(selfPractice.map(s=>s.punctuationMistakes)),
+          spacing: sum(selfPractice.map(s=>s.spacingMistakes)),
+          missing: sum(selfPractice.map(s=>s.missingWords)),
+          extra: sum(selfPractice.map(s=>s.extraWords)),
+        }
+      },
+      mcq: {
+        attempts: mcqSubs.length,
+        avgScore: avg(mcqSubs.map(s=>s.score)),
+        avgAccuracyPercent: avg(mcqSubs.map(s=> s.total ? (s.score / s.total) * 100 : 0)),
+      },
+    };
+
+    const includeDays = (req.query.detail === 'true') || (req.query.includeDays === 'true') || (req.query.withDays === 'true');
+
+    const reportBase = {
+      user: { id: userId, name: `${user?.firstName||''} ${user?.lastName||''}`.trim(), category: user?.examCategory },
+      weekly,
+      summary,
+      growth,
+      dangerZone: {
+        topMistakeCategories: top3,
+        dictationTopWeakTopics: topDictationTopics,
+      },
+      suggestions,
+      generatedAt: new Date().toISOString(),
+    };
+
+    if (includeDays) {
+      reportBase.days = days;
+    }
+
+    return res.status(200).json(reportBase);
+
+  } catch (error) {
+    console.error('Weekly report error:', error);
+    return res.status(500).json({ message: 'Server Error', error: error.message });
+  }
+};
+
+// Wrapper endpoint: weekly report by userId (self-access only)
+exports.weeklyUserReportById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    if (String(req.user._id) !== String(id)) {
+      return res.status(403).json({ message: 'Forbidden: can only access your own report' });
+    }
+    return exports.weeklyUserReport(req, res);
+  } catch (error) {
+    console.error('Weekly report by id error:', error);
+    return res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };

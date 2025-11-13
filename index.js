@@ -18,6 +18,7 @@ const questionRoutes = require("./routes/questionRoutes");
 const mcqSubmissionRoutes = require("./routes/mcqSubmissionRoutes");
 const typingTestRoutes = require('./routes/typingTestRoutes');
 const formattingTestRoutes = require('./routes/formattingTestRoutes');
+const selfPracticeRoutes = require('./routes/selfPracticeRoutes');
 
 // ✅ Load env and establish DB connection BEFORE scheduling background jobs
 dotenv.config();
@@ -31,10 +32,17 @@ const app = express();
 // ✅ Fix: Properly Configure CORS
 app.use(
   cors({
-    origin: ["http://localhost:3000", "https://www.rapidsteno.in", "https://rapidstenographer.vercel.app", "https://rapidsteno.vercel.app", "https://rapid-steno-api.vercel.app"], // Allow frontend domains
-    methods: "GET,POST,PUT,DELETE,PATCH",
-    // allowedHeaders: "Content-Type,Authorization",
+    origin: [
+      "http://localhost:3000",
+      "https://www.rapidsteno.in",
+      "https://rapidstenographer.vercel.app",
+      "https://rapidsteno.vercel.app",
+      "https://rapid-steno-api.vercel.app"
+    ], // Allow frontend domains
+    methods: "GET,POST,PUT,DELETE,PATCH,OPTIONS",
     allowedHeaders: ["Content-Type", "Authorization", "x-session-token"],
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   })
 );
 
@@ -48,6 +56,7 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/dictations', require('./routes/dictationRoutes'));
 app.use('/api/admin', adminRoutes); // Prefix all admin routes
 app.use("/api/user/dictationSubmissions", submissionRoutes);
+app.use('/api/student-tracker', require('./routes/studentTrackerRoutes')); // Student tracker routes
 app.use("/api/feedback", feedbackRoutes);
 app.use("/api/newsfeed", newsFeedRoutes);
 app.use("/api/compare", compareRoutes);
@@ -59,6 +68,7 @@ app.use("/api/questions", questionRoutes);
 app.use("/api/mcq-submissions", mcqSubmissionRoutes);
 app.use('/api/typing-test', typingTestRoutes);
 app.use('/api/formatting-test', formattingTestRoutes);
+app.use('/api/self-practice', selfPracticeRoutes);
 
 // Trust proxy to get correct client IP when behind a reverse proxy (like Nginx, Vercel, etc.)
 app.set('trust proxy', true);
@@ -73,7 +83,7 @@ app.set('trust proxy', true);
 
 //  //cron.schedule('*/1 * * * *', () => {
 // cron.schedule('0 */6 * * *', () => {
-
+// 
 //   console.log("📤 Scheduled: Sending performance reports...");
 //   autoReportMailer();
 // });
@@ -88,4 +98,10 @@ app.set('trust proxy', true);
 
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+// ✅ Export for Vercel serverless, use listen only locally
+if (process.env.VERCEL) {
+  module.exports = app;
+} else {
+  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+}
