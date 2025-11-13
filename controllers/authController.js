@@ -1,5 +1,6 @@
 const User = require('../models/userModel');
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
@@ -194,11 +195,30 @@ exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
     const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    if (!normalizedEmail || typeof password !== 'string' || password.length === 0) {
+      console.error('[LOGIN] missing-email-or-password');
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
+    const JWT_SECRET = process.env.JWT_SECRET;
+    if (!JWT_SECRET) {
+      console.error('[LOGIN] missing-JWT_SECRET');
+      return res.status(500).json({ message: 'Server configuration error' });
+    }
+    const requestId = crypto.randomUUID();
+    const ipHeader = (req.headers['x-forwarded-for'] || '').toString();
+    const clientIp = ipHeader.split(',')[0]?.trim() || req.ip || req.socket?.remoteAddress || 'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    const mongoStateMap = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
+    const mongoState = mongoStateMap[mongoose.connection.readyState] || `state_${mongoose.connection.readyState}`;
+    console.log(`[LOGIN][${requestId}] start ip=${clientIp} ua="${userAgent}" mongo=${mongoState} email=${normalizedEmail}`);
 
+    console.time(`[LOGIN][${requestId}] findUser`);
     const user = await User.findOne({
       email: { $regex: `^${escapeRegex(normalizedEmail)}$`, $options: 'i' }
     });
+    console.timeEnd(`[LOGIN][${requestId}] findUser`);
     if (!user) return res.status(400).json({ message: 'Invalid email or password' });
+    console.log(`[LOGIN][${requestId}] userFound id=${user._id} verified=${user.isEmailVerified} active=${user.isActive} sub=${user.subscriptionType}`);
 
     if (!user.isEmailVerified) {
       return res.status(403).json({ message: 'Please verify your email before logging in.' });
@@ -208,7 +228,13 @@ exports.login = async (req, res) => {
       return res.status(403).json({ message: 'User is deactivated. Contact admin.' });
     }
 
+    if (typeof user.password !== 'string') {
+      console.error(`[LOGIN][${requestId}] invalid-stored-password-type`);
+      return res.status(500).json({ message: 'Server error: invalid user credentials' });
+    }
+    console.time(`[LOGIN][${requestId}] bcrypt.compare`);
     const isMatch = await bcrypt.compare(password, user.password);
+    console.timeEnd(`[LOGIN][${requestId}] bcrypt.compare`);
     if (!isMatch) return res.status(400).json({ message: 'Invalid email or password' });
 
 
@@ -228,7 +254,10 @@ if (user.subscriptionType === 'Paid' && user.paidUntil && new Date() > user.paid
 
 // ✅ Save the changes BEFORE blocking login
     if (updated) {
+      console.time(`[LOGIN][${requestId}] saveStatusUpdate`);
       await user.save();
+      console.timeEnd(`[LOGIN][${requestId}] saveStatusUpdate`);
+      console.log(`[LOGIN][${requestId}] statusUpdated sub=${user.subscriptionType}`);
     }
 
     // ✅ Allow 'Unpaid' users to log in. Access restrictions (if any) should be handled at feature level.
@@ -239,7 +268,9 @@ if (user.subscriptionType === 'Paid' && user.paidUntil && new Date() > user.paid
     user.lastActiveDate = new Date();
     user.loginCount += 1;
 
+    console.time(`[LOGIN][${requestId}] saveSession`);
     await user.save();
+    console.timeEnd(`[LOGIN][${requestId}] saveSession`);
 
     // ⏰ Generate JWT valid until midnight
     const now = new Date();
@@ -247,9 +278,11 @@ if (user.subscriptionType === 'Paid' && user.paidUntil && new Date() > user.paid
     midnight.setHours(24, 0, 0, 0);
     const secondsUntilMidnight = Math.floor((midnight - now) / 1000);
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+    console.time(`[LOGIN][${requestId}] jwt.sign`);
+    const token = jwt.sign({ id: user._id }, JWT_SECRET, {
       expiresIn: `${secondsUntilMidnight}s`,
     });
+    console.timeEnd(`[LOGIN][${requestId}] jwt.sign`);
 
     res.status(200).json({
       message: 'Login successful',
@@ -269,7 +302,14 @@ if (user.subscriptionType === 'Paid' && user.paidUntil && new Date() > user.paid
     });
 
   } catch (error) {
-    res.status(500).json({ message: 'Server Error', error });
+    const mongoReadyState = mongoose.connection.readyState;
+    console.error('[LOGIN] error', {
+      name: error?.name,
+      message: error?.message,
+      stack: error?.stack,
+      mongoReadyState
+    });
+    res.status(500).json({ message: 'Server Error', error: error?.message || 'Unknown error' });
   }
 };
 
