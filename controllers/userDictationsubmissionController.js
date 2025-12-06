@@ -1,6 +1,7 @@
 const UserDictationSubmission = require("../models/UserDictationSubmission");
 const User = require("../models/userModel");
 const Dictation = require("../models/Dictation");
+const mongoose = require('mongoose');
 
 exports.submitDictation = async (req, res) => {
   try {
@@ -624,6 +625,81 @@ exports.getUserDictationAnalysis = async (req, res) => {
   } catch (error) {
     console.error("Analysis Error:", error);
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.getDictationToppers = async (req, res) => {
+  try {
+    const { category } = req.query;
+    const pipeline = [
+      category ? { $match: { category } } : null,
+      { $lookup: {
+          from: 'submissions',
+          let: { dictId: '$_id' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$dictation', '$$dictId'] } } },
+            { $sort: { accuracy: -1, submittedAt: -1 } },
+            { $limit: 1 }
+          ],
+          as: 'topSubmission'
+        }
+      },
+      { $unwind: { path: '$topSubmission', preserveNullAndEmptyArrays: true } },
+      { $lookup: {
+          from: 'users',
+          localField: 'topSubmission.user',
+          foreignField: '_id',
+          as: 'userInfo'
+        }
+      },
+      { $unwind: { path: '$userInfo', preserveNullAndEmptyArrays: true } },
+      { $project: {
+          _id: 0,
+          dictationId: '$_id',
+          dictationTitle: '$title',
+          dictationType: '$category',
+          userId: '$userInfo._id',
+          userName: { $cond: [{ $ifNull: ['$userInfo.firstName', false] }, { $concat: ['$userInfo.firstName', ' ', '$userInfo.lastName'] }, null] },
+          accuracy: '$topSubmission.accuracy'
+        }
+      }
+    ].filter(Boolean);
+
+    const result = await Dictation.aggregate(pipeline).option({ allowDiskUse: true });
+
+    return res.status(200).json({ success: true, count: result.length, data: result });
+  } catch (error) {
+    console.error('Error fetching dictation toppers:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch dictation toppers', error: error.message });
+  }
+};
+
+exports.getDictationTopperByDictationId = async (req, res) => {
+  try {
+    const { dictationId } = req.params;
+    if (!mongoose.isValidObjectId(dictationId)) {
+      return res.status(400).json({ success: false, message: 'Invalid dictationId' });
+    }
+
+    const pipeline = [
+      { $match: { dictation: new mongoose.Types.ObjectId(dictationId) } },
+      { $sort: { accuracy: -1, submittedAt: -1 } },
+      { $limit: 1 },
+      { $lookup: { from: 'users', localField: 'user', foreignField: '_id', as: 'userInfo' } },
+      { $unwind: '$userInfo' },
+      { $project: { _id: 0, userId: '$userInfo._id', userName: { $concat: ['$userInfo.firstName', ' ', '$userInfo.lastName'] }, accuracy: '$accuracy' } }
+    ];
+
+    const result = await UserDictationSubmission.aggregate(pipeline).option({ allowDiskUse: true });
+
+    if (!result.length) {
+      return res.status(404).json({ success: false, message: 'No submissions found for this dictation' });
+    }
+
+    return res.status(200).json({ success: true, data: result[0] });
+  } catch (error) {
+    console.error('Error fetching dictation topper:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch dictation topper', error: error.message });
   }
 };
 
