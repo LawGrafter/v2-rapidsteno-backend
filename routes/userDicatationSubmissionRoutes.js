@@ -12,7 +12,8 @@ getUserDictationStats,
 getUserDictationStatsSummary,
 getUserDictationAnalysis,
 getDictationToppers,
-getDictationTopperByDictationId 
+getDictationTopperByDictationId,
+getUserMistakeTrends 
 } = require("../controllers/userDictationsubmissionController");
 const { userProtect } = require("../middleware/userMiddleware");
 const adminProtect = require("../middleware/authMiddleware");
@@ -33,5 +34,6 @@ router.get("/user-dictation-summary/:userId", userProtect, getUserDictationStats
 router.get("/user-dictation-analysis/:userId", userProtect, getUserDictationAnalysis);
 router.get("/dictation-toppers", userProtect, getDictationToppers);
 router.get("/dictation-toppers/:dictationId", userProtect, getDictationTopperByDictationId);
+router.get("/user-mistake-trends/:userId", userProtect, getUserMistakeTrends);
 
 module.exports = router;
