@@ -703,6 +703,133 @@ exports.getDictationTopperByDictationId = async (req, res) => {
   }
 };
 
+exports.getUserMistakeTrends = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const submissions = await UserDictationSubmission.find({ user: userId }).sort({ submittedAt: 1 });
+    if (!submissions.length) {
+      return res.status(404).json({ success: false, message: 'No submissions found' });
+    }
+
+    const byCategory = new Map();
+    const overallFreq = {};
+    let totalAccSum = 0;
+
+    for (const sub of submissions) {
+      const cat = sub.dictationType || 'Unknown';
+      if (!byCategory.has(cat)) {
+        byCategory.set(cat, { list: [], freq: {}, accSum: 0 });
+      }
+      const catEntry = byCategory.get(cat);
+      const counts = {
+        capital: sub.capitalMistakes || 0,
+        spelling: sub.spellingMistakes || 0,
+        extra: sub.extraWords || 0,
+        missing: sub.missingWords || 0,
+        punctuation: (sub.mistakeSummary?.punctuationMistakes?.length || 0)
+      };
+      catEntry.list.push({
+        submittedAt: sub.submittedAt || new Date(0),
+        accuracy: sub.accuracy || 0,
+        counts
+      });
+      catEntry.accSum += sub.accuracy || 0;
+      totalAccSum += sub.accuracy || 0;
+
+      const wordsSets = [
+        ...(sub.mistakeSummary?.capitalSpellingMistakes || []),
+        ...(sub.mistakeSummary?.spellingMistakes || []),
+        ...(sub.mistakeSummary?.missingWords || []),
+        ...(sub.mistakeSummary?.punctuationMistakes || [])
+      ];
+      for (const w of wordsSets) {
+        overallFreq[w] = (overallFreq[w] || 0) + 1;
+        catEntry.freq[w] = (catEntry.freq[w] || 0) + 1;
+      }
+    }
+
+    const lastN = 5;
+    const resultCategories = [];
+    for (const [cat, data] of byCategory.entries()) {
+      const totalSubs = data.list.length;
+      const avgAcc = totalSubs ? +(data.accSum / totalSubs).toFixed(2) : 0;
+      const totals = { capital: 0, spelling: 0, extra: 0, missing: 0, punctuation: 0 };
+      for (const item of data.list) {
+        totals.capital += item.counts.capital;
+        totals.spelling += item.counts.spelling;
+        totals.extra += item.counts.extra;
+        totals.missing += item.counts.missing;
+        totals.punctuation += item.counts.punctuation;
+      }
+
+      const lastItems = data.list.slice(-lastN);
+      const prevItems = data.list.slice(-2 * lastN, -lastN);
+      const series = {
+        capital: lastItems.map(i => i.counts.capital),
+        spelling: lastItems.map(i => i.counts.spelling),
+        extra: lastItems.map(i => i.counts.extra),
+        missing: lastItems.map(i => i.counts.missing),
+        punctuation: lastItems.map(i => i.counts.punctuation),
+        accuracy: lastItems.map(i => i.accuracy)
+      };
+      const avg = arr => arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0;
+      const trend = type => {
+        const lastAvg = avg(lastItems.map(i => i.counts[type]));
+        const prevAvg = avg(prevItems.map(i => i.counts[type]));
+        const delta = +(lastAvg - prevAvg).toFixed(2);
+        const status = delta > 0 ? 'increase' : delta < 0 ? 'decrease' : 'same';
+        return { delta, status };
+      };
+      const accTrend = (() => {
+        const lastAvg = avg(series.accuracy);
+        const prevAvg = avg(prevItems.map(i => i.accuracy));
+        const delta = +(lastAvg - prevAvg).toFixed(2);
+        const status = delta > 0 ? 'improved' : delta < 0 ? 'declined' : 'same';
+        return { delta, status };
+      })();
+
+      const topRepeated = Object.entries(data.freq)
+        .sort((a,b)=>b[1]-a[1])
+        .slice(0,5)
+        .map(([term,count])=>({ term, count }));
+
+      resultCategories.push({
+        category: cat,
+        totalSubmissions: totalSubs,
+        averageAccuracy: avgAcc,
+        accuracyTrend: accTrend,
+        mistakeTotals: totals,
+        mistakeSeriesLast5: series,
+        mistakeTrend: {
+          capital: trend('capital'),
+          spelling: trend('spelling'),
+          extra: trend('extra'),
+          missing: trend('missing'),
+          punctuation: trend('punctuation')
+        },
+        topRepeatedMistakes: topRepeated
+      });
+    }
+
+    const overallTopRepeated = Object.entries(overallFreq)
+      .sort((a,b)=>b[1]-a[1])
+      .slice(0,10)
+      .map(([term,count])=>({ term, count }));
+
+    const overall = {
+      userId,
+      totalSubmissions: submissions.length,
+      averageAccuracy: +(totalAccSum / submissions.length).toFixed(2),
+      topRepeatedMistakes: overallTopRepeated
+    };
+
+    return res.status(200).json({ success: true, overall, categories: resultCategories });
+  } catch (error) {
+    console.error('Error building user mistake trends:', error);
+    return res.status(500).json({ success: false, message: 'Failed to build trends', error: error.message });
+  }
+};
+
 // Admin: Usage analytics by dictation category and title (topic)
 // Query params:
 //   from: ISO date (optional)
