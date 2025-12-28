@@ -69,6 +69,7 @@ app.use("/api/mcq-submissions", mcqSubmissionRoutes);
 app.use('/api/typing-test', typingTestRoutes);
 app.use('/api/formatting-test', formattingTestRoutes);
 app.use('/api/self-practice', selfPracticeRoutes);
+app.use('/api/all-exam-aspirants', require('./routes/allExamAspirantRoutes'));
 
 // Trust proxy to get correct client IP when behind a reverse proxy (like Nginx, Vercel, etc.)
 app.set('trust proxy', true);

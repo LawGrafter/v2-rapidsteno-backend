@@ -42,6 +42,11 @@ const {
 } = require('../controllers/typingTestController');
 const { getDictationUsageAnalytics } = require('../controllers/userDictationsubmissionController');
 
+// ✅ Admin: Delete User Dictation Submission
+router.delete('/dictation-submissions/:submissionId', adminAuth, adminController.deleteUserDictationSubmission);
+
+// ✅ Admin: Get ALL User Dictation Submissions
+router.get('/dictation-submissions', adminAuth, adminController.getAllUserDictationSubmissions);
 
 // ✅ Admin Login Routes
 router.post('/login', adminController.adminLogin);

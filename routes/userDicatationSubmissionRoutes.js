@@ -13,7 +13,9 @@ getUserDictationStatsSummary,
 getUserDictationAnalysis,
 getDictationToppers,
 getDictationTopperByDictationId,
-getUserMistakeTrends 
+getUserMistakeTrends,
+getDictationLeaderboard, // ✅ Import new controller
+getAllDictationsRanked // ✅ Import global ranked controller
 } = require("../controllers/userDictationsubmissionController");
 const { userProtect } = require("../middleware/userMiddleware");
 const adminProtect = require("../middleware/authMiddleware");
@@ -21,9 +23,13 @@ const adminProtect = require("../middleware/authMiddleware");
 
 router.post("/", userProtect, submitDictation);
 router.get("/done/:userId", userProtect, getCompletedDictationSubmissionsByUser);
+router.get("/all-ranked", getAllDictationsRanked); // ✅ All submissions ranked (Global Leaderboard) - Public access
 router.delete("/:userId/:dictationId", userProtect, deleteUserSubmission);
 router.put("/:userId/:dictationId", userProtect, updateUserSubmission); 
 router.get("/leaderboard", userProtect, getGlobalLeaderboard);
+// ✅ Specific Dictation Leaderboard
+router.get("/leaderboard/:dictationId", userProtect, getDictationLeaderboard);
+
 router.get("/dictation-submission-counts", adminProtect, getDictationSubmissionCounts);
 router.get("/user-dictation-stats", getUserDictationStats);
 
