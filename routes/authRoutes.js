@@ -16,6 +16,7 @@ const {
 
 const { verifyOtp, trackUserActivity, forgotPassword, resetPassword, sendOtp, markTourAsSeen, markComparisonTourAsSeen, markNotificationAsSeen, verifyOtpAndRegister, setUserSubscriptionPlan, weeklyUserReport, weeklyUserReportById } = require("../controllers/authController");
 const { userProtect } = require("../middleware/userMiddleware");
+const { loginRateLimiter } = require("../middleware/loginRateLimiter");
 const checkUserActivity = require('../middleware/checkUserActivity');
 const adminProtect = require("../middleware/authMiddleware");
 const { getSourceUrlComment } = require('puppeteer');
@@ -38,7 +39,7 @@ router.post('/track-activity', trackUserActivity);
 
 
 router.post('/register', register);
-router.post('/login', login);
+router.post('/login', loginRateLimiter, login);
 router.patch('/update-status', updateUserStatus);
 // router.post('/forgot-password', forgotPassword); 
 
