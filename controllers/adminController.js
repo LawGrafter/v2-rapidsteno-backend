@@ -652,6 +652,52 @@ exports.adminWeeklyUserReport = async (req, res) => {
   }
 };
 
+// Delete any user dictation submission by ID
+exports.deleteUserDictationSubmission = async (req, res) => {
+  try {
+    const submissionId = req.params.submissionId;
+    const submission = await UserDictationSubmission.findByIdAndDelete(submissionId);
+
+    if (!submission) {
+      return res.status(404).json({ message: 'Submission not found' });
+    }
+
+    res.status(200).json({ message: 'Dictation submission deleted successfully' });
+  } catch (error) {
+    console.error('Delete dictation submission error:', error);
+    res.status(500).json({ message: 'Failed to delete submission', error: error.message });
+  }
+};
+
+// Get ALL User Dictation Submissions (Admin View)
+exports.getAllUserDictationSubmissions = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const total = await UserDictationSubmission.countDocuments();
+    const submissions = await UserDictationSubmission.find()
+      .populate('user', 'firstName lastName email')
+      .populate('dictation', 'title category')
+      .sort({ submittedAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    res.status(200).json({
+      success: true,
+      count: submissions.length,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+      data: submissions
+    });
+  } catch (error) {
+    console.error('Error fetching all dictation submissions:', error);
+    res.status(500).json({ message: 'Failed to fetch submissions', error: error.message });
+  }
+};
+
 const FormattingTestResult = require('../models/FormattingTestResult');
 const PitmanExerciseSubmission = require('../models/PitmanExerciseSubmission');
 const SelfPracticeSubmission = require('../models/SelfPracticeSubmission');

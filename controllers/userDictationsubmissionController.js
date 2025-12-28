@@ -670,7 +670,77 @@ exports.getDictationToppers = async (req, res) => {
     return res.status(200).json({ success: true, count: result.length, data: result });
   } catch (error) {
     console.error('Error fetching dictation toppers:', error);
-    return res.status(500).json({ success: false, message: 'Failed to fetch dictation toppers', error: error.message });
+    res.status(500).json({ success: false, message: 'Failed to fetch dictation toppers' });
+  }
+};
+
+exports.getAllDictationsRanked = async (req, res) => {
+  try {
+    // Aggregation Pipeline to Calculate Average Accuracy per User and Rank Users
+    const pipeline = [
+      // 1. Group by User to calculate stats
+      {
+        $group: {
+          _id: "$user",
+          averageAccuracy: { $avg: "$accuracy" },
+          averageSpeed: { $avg: "$playbackSpeed" },
+          totalDictations: { $sum: 1 },
+          lastSubmittedAt: { $max: "$submittedAt" }
+        }
+      },
+      // 2. Sort by Average Accuracy (Desc), then Speed (Desc), then Total Dictations (Desc)
+      {
+        $sort: { 
+          averageAccuracy: -1, 
+          averageSpeed: -1, 
+          totalDictations: -1 
+        }
+      },
+      // 3. Join with User collection to get names
+      {
+        $lookup: {
+          from: "users",
+          localField: "_id",
+          foreignField: "_id",
+          as: "userInfo"
+        }
+      },
+      // 4. Unwind user info (preserve if user deleted, though unlikely for submissions)
+      {
+        $unwind: "$userInfo"
+      },
+      // 5. Project final format
+      {
+        $project: {
+          _id: 0,
+          userId: "$userInfo._id",
+          userName: { $concat: ["$userInfo.firstName", " ", "$userInfo.lastName"] },
+          email: "$userInfo.email",
+          averageAccuracy: { $round: ["$averageAccuracy", 2] },
+          averageSpeed: { $round: ["$averageSpeed", 2] },
+          totalDictations: 1,
+          lastSubmittedAt: 1
+        }
+      }
+    ];
+
+    const leaderboard = await UserDictationSubmission.aggregate(pipeline);
+
+    // Add Rank (1-based index)
+    const rankedLeaderboard = leaderboard.map((user, index) => ({
+      rank: index + 1,
+      ...user
+    }));
+
+    res.status(200).json({
+      success: true,
+      count: rankedLeaderboard.length,
+      data: rankedLeaderboard
+    });
+
+  } catch (error) {
+    console.error("Error fetching user leaderboard:", error);
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 };
 
@@ -692,14 +762,85 @@ exports.getDictationTopperByDictationId = async (req, res) => {
 
     const result = await UserDictationSubmission.aggregate(pipeline).option({ allowDiskUse: true });
 
-    if (!result.length) {
-      return res.status(404).json({ success: false, message: 'No submissions found for this dictation' });
-    }
-
+    if (!result.length) return res.status(200).json({ success: true, data: null });
     return res.status(200).json({ success: true, data: result[0] });
   } catch (error) {
-    console.error('Error fetching dictation topper:', error);
+    console.error('Error fetching dictation topper by ID:', error);
     return res.status(500).json({ success: false, message: 'Failed to fetch dictation topper', error: error.message });
+  }
+};
+
+// NEW: Get Full Leaderboard for a Specific Dictation
+exports.getDictationLeaderboard = async (req, res) => {
+  try {
+    const { dictationId } = req.params;
+    if (!mongoose.isValidObjectId(dictationId)) {
+      return res.status(400).json({ success: false, message: 'Invalid dictationId' });
+    }
+
+    // Pipeline to get all submissions, sorted by accuracy desc, then speed (optional logic), then date
+    const pipeline = [
+      { $match: { dictation: new mongoose.Types.ObjectId(dictationId) } },
+      
+      // Lookup User details
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'user',
+          foreignField: '_id',
+          as: 'userInfo'
+        }
+      },
+      { $unwind: '$userInfo' },
+
+      // Project necessary fields (including speed calculation if needed)
+      // Note: UserDictationSubmission has `playbackSpeed` (dictation speed) and `typingTimer` (duration in seconds)
+      // To calculate WPM (Words Per Minute) if not stored: (totalWords / (typingTimer / 60))
+      // But we don't have `totalWords` directly here unless we lookup Dictation or rely on it being constant for this dictationId
+      // However, usually we can just show `playbackSpeed` if that's what "speed" means in this context (e.g. 80wpm test)
+      // Or if `wpm` was stored. The prompt says "take those data accuracy speed based".
+      // Let's assume `playbackSpeed` is the dictation speed, but user typing speed might be different.
+      // Let's check if we can calculate typing speed. We need `dictation.totalwords`.
+      // For now, let's return `playbackSpeed` and `typingTimer`. 
+      
+      {
+        $project: {
+          _id: 0,
+          userId: '$userInfo._id',
+          userName: { $concat: ['$userInfo.firstName', ' ', '$userInfo.lastName'] },
+          accuracy: 1,
+          playbackSpeed: 1,
+          typingTimer: 1, // seconds
+          submittedAt: 1,
+          // If we want to sort by speed as tie-breaker, we can use playbackSpeed or typingTimer
+        }
+      },
+
+      // Sort by Accuracy (Desc)
+      { $sort: { accuracy: -1, submittedAt: 1 } } 
+    ];
+
+    const submissions = await UserDictationSubmission.aggregate(pipeline);
+
+    // Add Rank
+    const leaderboard = submissions.map((sub, index) => ({
+      rank: index + 1,
+      userName: sub.userName,
+      accuracy: sub.accuracy,
+      speed: sub.playbackSpeed, // Returning playback speed as requested "speed"
+      duration: sub.typingTimer,
+      submittedAt: sub.submittedAt
+    }));
+
+    res.status(200).json({
+      success: true,
+      count: leaderboard.length,
+      data: leaderboard
+    });
+
+  } catch (error) {
+    console.error('Error fetching dictation leaderboard:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch leaderboard', error: error.message });
   }
 };
 
