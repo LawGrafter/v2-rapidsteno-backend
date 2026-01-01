@@ -684,6 +684,7 @@ exports.getAllDictationsRanked = async (req, res) => {
           _id: "$user",
           averageAccuracy: { $avg: "$accuracy" },
           averageSpeed: { $avg: "$playbackSpeed" },
+          allSpeeds: { $push: "$playbackSpeed" }, // Collect all speeds to find mode
           totalDictations: { $sum: 1 },
           lastSubmittedAt: { $max: "$submittedAt" }
         }
@@ -718,6 +719,7 @@ exports.getAllDictationsRanked = async (req, res) => {
           email: "$userInfo.email",
           averageAccuracy: { $round: ["$averageAccuracy", 2] },
           averageSpeed: { $round: ["$averageSpeed", 2] },
+          allSpeeds: 1,
           totalDictations: 1,
           lastSubmittedAt: 1
         }
@@ -726,11 +728,34 @@ exports.getAllDictationsRanked = async (req, res) => {
 
     const leaderboard = await UserDictationSubmission.aggregate(pipeline);
 
-    // Add Rank (1-based index)
-    const rankedLeaderboard = leaderboard.map((user, index) => ({
-      rank: index + 1,
-      ...user
-    }));
+    // Helper to calculate Mode (Most Frequent Value)
+    const calculateMode = (arr) => {
+      if (!arr || arr.length === 0) return 0;
+      const frequency = {};
+      let maxFreq = 0;
+      let mode = arr[0];
+      
+      for (const item of arr) {
+        frequency[item] = (frequency[item] || 0) + 1;
+        if (frequency[item] > maxFreq) {
+          maxFreq = frequency[item];
+          mode = item;
+        }
+      }
+      return mode;
+    };
+
+    // Add Rank (1-based index) and Calculate Most Frequent Speed
+    const rankedLeaderboard = leaderboard.map((user, index) => {
+      const mostFrequentSpeed = calculateMode(user.allSpeeds);
+      const { allSpeeds, ...userData } = user; // Remove allSpeeds array from response
+      
+      return {
+        rank: index + 1,
+        ...userData,
+        playbackSpeed: mostFrequentSpeed // "Most used speed"
+      };
+    });
 
     res.status(200).json({
       success: true,
