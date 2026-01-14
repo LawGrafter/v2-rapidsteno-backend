@@ -19,6 +19,7 @@ const mcqSubmissionRoutes = require("./routes/mcqSubmissionRoutes");
 const typingTestRoutes = require('./routes/typingTestRoutes');
 const formattingTestRoutes = require('./routes/formattingTestRoutes');
 const selfPracticeRoutes = require('./routes/selfPracticeRoutes');
+const matterReadingRoutes = require('./routes/matterReadingRoutes');
 
 // ✅ Load env and establish DB connection BEFORE scheduling background jobs
 dotenv.config();
@@ -69,6 +70,7 @@ app.use("/api/mcq-submissions", mcqSubmissionRoutes);
 app.use('/api/typing-test', typingTestRoutes);
 app.use('/api/formatting-test', formattingTestRoutes);
 app.use('/api/self-practice', selfPracticeRoutes);
+app.use('/api/matter-reading', matterReadingRoutes);
 app.use('/api/all-exam-aspirants', require('./routes/allExamAspirantRoutes'));
 
 // Trust proxy to get correct client IP when behind a reverse proxy (like Nginx, Vercel, etc.)
