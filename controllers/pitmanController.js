@@ -74,7 +74,7 @@ exports.getPitmanLearningExercises = async (req, res) => {
     
     // Calculate pagination
     const pageNum = Math.max(1, parseInt(page, 10));
-    const limitNum = Math.max(1, Math.min(50, parseInt(limit, 10))); // Max 50 per page
+    const limitNum = Math.max(1, Math.min(1000, parseInt(limit, 10))); // Max 1000 per page
     const skip = (pageNum - 1) * limitNum;
     
     // Get exercises with pagination
