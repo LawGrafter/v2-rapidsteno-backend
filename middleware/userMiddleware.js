@@ -28,6 +28,11 @@ const userProtect = async (req, res, next) => {
 
     // Attach user to request object
     req.user = user;
+
+    // ✅ Log Activity (Fire and forget)
+    const { logActivity } = require('../utils/activityLogger');
+    logActivity(req, user._id).catch(err => console.error("Activity Log Error:", err.message));
+
     next();
   } catch (error) {
     return res.status(401).json({ message: "Token verification failed", error });
