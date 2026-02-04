@@ -72,6 +72,7 @@ app.use('/api/formatting-test', formattingTestRoutes);
 app.use('/api/self-practice', selfPracticeRoutes);
 app.use('/api/matter-reading', matterReadingRoutes);
 app.use('/api/all-exam-aspirants', require('./routes/allExamAspirantRoutes'));
+app.use('/api/admin-activity', require('./routes/adminActivityRoutes')); // ✅ Admin User Activity Logs
 
 // Trust proxy to get correct client IP when behind a reverse proxy (like Nginx, Vercel, etc.)
 app.set('trust proxy', true);
