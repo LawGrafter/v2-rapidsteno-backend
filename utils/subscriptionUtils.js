@@ -1,6 +1,6 @@
 // Centralized subscription cycle logic
 // Expanded durations support:
-// - Months: 1 (30d), 2 (60d), 3 (90d), 12 (365d)
+// - Months: 1 (30d), 2 (60d), 3 (90d), 6 (180d), 12 (365d)
 // - Custom: any positive number of days
 
 function normalizePlan(planTypeRaw) {
@@ -29,7 +29,7 @@ function validatePlanAndMonths(planTypeRaw, monthsRaw) {
     return { ok: false, reason: 'Invalid plan or months' };
   }
 
-  const monthsToDays = { 1: 30, 2: 60, 3: 90, 12: 365 };
+  const monthsToDays = { 1: 30, 2: 60, 3: 90, 6: 180, 12: 365 };
   let days = monthsToDays[monthsNum];
 
   // If months not in map, interpret provided number as days (custom support)
@@ -75,7 +75,7 @@ function computeNextCycle(user, overridePlanType) {
 function computeCycleWithMonths(startDateRaw, monthsRaw) {
   const startDate = startDateRaw ? new Date(startDateRaw) : new Date();
   const monthsNum = Number(monthsRaw);
-  const monthsToDays = { 1: 30, 2: 60, 3: 90, 12: 365 };
+  const monthsToDays = { 1: 30, 2: 60, 3: 90, 6: 180, 12: 365 };
   const days = monthsToDays[monthsNum] ?? monthsNum; // custom days fallback
 
   const endDate = new Date(startDate);
