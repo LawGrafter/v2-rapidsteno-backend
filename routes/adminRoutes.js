@@ -70,6 +70,12 @@ router.patch('/users/:id/subscription-dates', adminAuth, adminController.adminUp
 // ✅ Admin Weekly Report for a specific user
 router.get('/users/:id/weekly-report', adminAuth, adminController.adminWeeklyUserReport);
 
+// ✅ Admin: Get Users with >2 Devices
+router.get('/reports/multi-device-users', adminAuth, adminController.getMultiDeviceUsers);
+
+// ✅ Admin: User Device & Security Report
+router.get('/users/:userId/device-report', adminAuth, adminController.getUserDeviceReport);
+
 // ✅ NEW: Get user by email
 router.get('/user-by-email/:email', adminAuth, async (req, res) => {
   try {

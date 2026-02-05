@@ -15,6 +15,8 @@ const SelfPracticeSubmission = require('../models/SelfPracticeSubmission');
 const TypingRecord = require('../models/TypingRecord');
 const UserDictationSubmission = require('../models/UserDictationSubmission');
 const McqSubmission = require('../models/mcqSubmissionModel');
+const UserSession = require('../models/UserSession'); // ✅ Added
+const SecurityEvent = require('../models/SecurityEvent'); // ✅ Added
 
 // Helper to safely build a regex from user input
 function escapeRegex(str) {
@@ -292,6 +294,40 @@ exports.login = async (req, res) => {
       updates
     );
     console.timeEnd(`[LOGIN][${requestId}] updateStats`);
+
+    // ✅ START: Device Tracking Logic
+    const deviceId = req.body.deviceId || req.headers['x-device-id'] || `unknown-${requestId}`;
+    const deviceType = req.body.deviceType || (userAgent.includes('Mobile') ? 'Mobile' : 'Desktop');
+    
+    // 1. Create User Session
+    await UserSession.create({
+      user: user._id,
+      deviceId: deviceId,
+      deviceType: deviceType,
+      ipAddress: clientIp,
+      os: UAParser(userAgent).os.name || 'Unknown',
+      browser: UAParser(userAgent).browser.name || 'Unknown',
+      token: user.sessionToken, // Use the session token we just generated
+      isActive: true
+    });
+
+    // 2. Check for Suspicious Activity (Multiple IPs in short time)
+    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+    const recentSessions = await UserSession.distinct('ipAddress', {
+      user: user._id,
+      lastActive: { $gte: fifteenMinutesAgo }
+    });
+
+    if (recentSessions.length > 1) {
+      await SecurityEvent.create({
+        user: user._id,
+        eventType: 'SUSPICIOUS_LOGIN',
+        ipAddress: clientIp,
+        deviceId: deviceId,
+        details: { reason: 'Multiple IP addresses detected within 15 minutes', ips: recentSessions }
+      });
+    }
+    // ✅ END: Device Tracking Logic
 
     // ⏰ Generate JWT valid until midnight
     const now = new Date();
