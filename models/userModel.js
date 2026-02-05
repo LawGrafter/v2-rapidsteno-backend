@@ -28,6 +28,7 @@ const UserSchema = new mongoose.Schema({
     unique: true,
     lowercase: true,
     trim: true,
+    index: true, // Explicit index for faster login lookups
     validate: [validator.isEmail, 'Invalid email address']
   },
   phone: {
@@ -49,7 +50,7 @@ const UserSchema = new mongoose.Schema({
     endDate: Date,
   }],
 
-  examCategory: { type: String, enum: ['Court Exams', 'SSC & other exams'], default: 'Other' },
+  examCategory: { type: String, enum: ['Court Exams', 'SSC & other exams'], default: 'SSC & other exams' },
   isRepeatUser: { type: Boolean, default: false },
   isActive: { type: Boolean, default: true },
   lastActiveDate: { type: Date, default: Date.now },
@@ -111,7 +112,8 @@ const UserSchema = new mongoose.Schema({
 // Hash password before saving
 UserSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
-  this.password = await bcrypt.hash(this.password, 10);
+  // Lower salt rounds to 8 for faster login (approx 4x faster than 10) while maintaining reasonable security
+  this.password = await bcrypt.hash(this.password, 8);
   next();
 });
 

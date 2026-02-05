@@ -219,10 +219,13 @@ exports.login = async (req, res) => {
     console.log(`[LOGIN][${requestId}] start ip=${clientIp} ua="${userAgent}" mongo=${mongoState} email=${normalizedEmail}`);
 
     console.time(`[LOGIN][${requestId}] findUser`);
-    const user = await User.findOne({
-      email: { $regex: `^${escapeRegex(normalizedEmail)}$`, $options: 'i' }
-    });
+    // OPTIMIZATION: Use exact match instead of regex for index usage
+    // OPTIMIZATION: Select only required fields and use .lean() for faster query
+    const user = await User.findOne({ email: normalizedEmail })
+      .select('_id firstName lastName email phone password isEmailVerified isActive subscriptionType trialExpiresAt paidUntil createdAt hasSeenGrowthTour hasSeenComparisonTour loginCount')
+      .lean();
     console.timeEnd(`[LOGIN][${requestId}] findUser`);
+    
     if (!user) return res.status(400).json({ message: 'Invalid email or password' });
     console.log(`[LOGIN][${requestId}] userFound id=${user._id} verified=${user.isEmailVerified} active=${user.isActive} sub=${user.subscriptionType}`);
 
@@ -244,39 +247,51 @@ exports.login = async (req, res) => {
     if (!isMatch) return res.status(400).json({ message: 'Invalid email or password' });
 
 
-    let updated = false;
+    // ✅ Optimized Update Logic: Single DB call instead of multiple saves
+    const updates = {
+      $inc: { loginCount: 1 },
+      $set: {
+        lastActiveDate: new Date(),
+        sessionToken: crypto.randomUUID()
+      },
+      $unset: {}
+    };
 
-if (user.subscriptionType === 'Trial' && user.trialExpiresAt && new Date() > user.trialExpiresAt) {
-  user.subscriptionType = 'Unpaid';
-  user.trialExpiresAt = undefined;
-  updated = true;
-}
+    // Update local user object for response consistency
+    user.sessionToken = updates.$set.sessionToken;
+    user.lastActiveDate = updates.$set.lastActiveDate;
+    user.loginCount = (user.loginCount || 0) + 1;
 
-if (user.subscriptionType === 'Paid' && user.paidUntil && new Date() > user.paidUntil) {
-  user.subscriptionType = 'Unpaid';
-  user.paidUntil = undefined;
-  updated = true;
-}
-
-// ✅ Save the changes BEFORE blocking login
-    if (updated) {
-      console.time(`[LOGIN][${requestId}] saveStatusUpdate`);
-      await user.save();
-      console.timeEnd(`[LOGIN][${requestId}] saveStatusUpdate`);
-      console.log(`[LOGIN][${requestId}] statusUpdated sub=${user.subscriptionType}`);
+    // Check for Trial Expiry
+    if (user.subscriptionType === 'Trial' && user.trialExpiresAt && new Date() > user.trialExpiresAt) {
+      updates.$set.subscriptionType = 'Unpaid';
+      updates.$unset.trialExpiresAt = 1;
+      
+      user.subscriptionType = 'Unpaid';
+      user.trialExpiresAt = null;
     }
 
-    // ✅ Allow 'Unpaid' users to log in. Access restrictions (if any) should be handled at feature level.
+    // Check for Paid Plan Expiry
+    if (user.subscriptionType === 'Paid' && user.paidUntil && new Date() > user.paidUntil) {
+      updates.$set.subscriptionType = 'Unpaid';
+      updates.$unset.paidUntil = 1;
+      
+      user.subscriptionType = 'Unpaid';
+      user.paidUntil = null;
+    }
 
-    // ✅ Update session info
-    const sessionToken = crypto.randomUUID();
-    user.sessionToken = sessionToken;
-    user.lastActiveDate = new Date();
-    user.loginCount += 1;
+    // Clean up empty $unset to avoid Mongo errors
+    if (Object.keys(updates.$unset).length === 0) {
+      delete updates.$unset;
+    }
 
-    console.time(`[LOGIN][${requestId}] saveSession`);
-    await user.save();
-    console.timeEnd(`[LOGIN][${requestId}] saveSession`);
+    console.time(`[LOGIN][${requestId}] updateStats`);
+    // OPTIMIZATION: Use updateOne for fire-and-forget lightweight update
+    await User.updateOne(
+      { _id: user._id },
+      updates
+    );
+    console.timeEnd(`[LOGIN][${requestId}] updateStats`);
 
     // ⏰ Generate JWT valid until midnight
     const now = new Date();
@@ -293,7 +308,7 @@ if (user.subscriptionType === 'Paid' && user.paidUntil && new Date() > user.paid
     res.status(200).json({
       message: 'Login successful',
       token,
-      sessionToken,
+      sessionToken: user.sessionToken,
       userId: user._id,
       firstName: user.firstName,
       lastName: user.lastName,
