@@ -244,6 +244,11 @@ exports.getUserDeviceReport = async (req, res) => {
   try {
     const { userId } = req.params;
     
+    // 0. Validate User ID Format
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+        return res.status(400).json({ message: 'Invalid User ID format' });
+    }
+
     // Validate User Existence
     const user = await User.findById(userId).select('firstName lastName email');
     if (!user) return res.status(404).json({ message: 'User not found' });
@@ -282,6 +287,7 @@ exports.getUserDeviceReport = async (req, res) => {
     
     const isRapidSwitching = recentDevices.length > 1;
     const isExcessiveDevices = deviceStats.length > 2; // More than 2 unique devices total
+    const isExcessiveIps = uniqueIps.length > 2; // More than 2 unique IPs total
     
     const isSuspicious = isRapidSwitching || isExcessiveDevices || isExcessiveIps;
     
