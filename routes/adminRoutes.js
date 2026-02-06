@@ -6,7 +6,7 @@
 
 // // Login route
 // router.post('/login', adminController.adminLogin);
-// router.post('/mark-paid', adminController.markUserAsPaid); 
+// router.post('/mark-paid', adminAuth, adminController.markUserAsPaid); 
 // router.get('/admin/users', adminAuth, adminController.getAllUsers); 
 // router.delete('/users/:id', adminAuth, adminController.deleteUserById); // ✅ NEW DELETE API
 // router.get('/online-users', adminController.getOnlineUsers);
@@ -55,7 +55,7 @@ router.post('/login/verify-otp', adminController.adminVerifyOtp);
 
 
 // ✅ Admin Protected Routes
-router.post('/mark-paid', adminController.markUserAsPaid);
+router.post('/mark-paid', adminAuth, adminController.markUserAsPaid);
 router.get('/admin/users', adminAuth, adminController.getAllUsers);
 router.delete('/users/:id', adminAuth, adminController.deleteUserById);
 router.put('/edit-user/:id', adminAuth, adminController.editUserByAdmin);
