@@ -91,20 +91,34 @@ exports.getAllUsers = async (req, res) => {
 
 exports.markUserAsPaid = async (req, res) => {
   try {
-    const { userId, plan, duration } = req.body;
-    // Basic implementation - actual logic might vary
+    const { userId, plan, passType, duration, days, validity } = req.body;
+    
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     user.subscriptionType = 'Paid';
-    user.SubscriptionPlanType = plan;
-    // Calculate expiry based on duration (assuming months)
-    const months = parseInt(duration) || 1;
-    user.paidUntil = new Date(Date.now() + months * 30 * 24 * 60 * 60 * 1000);
+
+    const finalPlan = plan || passType;
+    if (finalPlan) {
+        user.SubscriptionPlanType = finalPlan;
+    }
+
+    let addDays = 30;
     
-    await user.save();
-    res.status(200).json({ message: 'User marked as paid', user });
+    const explicitDays = days !== undefined && days !== null ? days : validity;
+
+    if (explicitDays !== undefined && explicitDays !== null) {
+        addDays = parseInt(explicitDays);
+    } else if (duration !== undefined && duration !== null) {
+        addDays = parseInt(duration) * 30;
+    }
+
+    user.paidUntil = new Date(Date.now() + addDays * 24 * 60 * 60 * 1000);
+    
+    const updatedUser = await user.save();
+    res.status(200).json({ message: 'User marked as paid', user: updatedUser });
   } catch (error) {
+    console.error('Mark User Paid Error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -170,14 +184,24 @@ exports.updateUserCrmFields = async (req, res) => {
 
 exports.adminSetUserSubscription = async (req, res) => {
   try {
-    const { plan, durationMonths } = req.body;
+    const { plan, passType, durationMonths, days, validity } = req.body;
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     user.subscriptionType = 'Paid';
-    user.SubscriptionPlanType = plan;
-    const months = parseInt(durationMonths) || 1;
-    user.paidUntil = new Date(Date.now() + months * 30 * 24 * 60 * 60 * 1000);
+    const finalPlan = plan || passType;
+    if (finalPlan) {
+      user.SubscriptionPlanType = finalPlan;
+    }
+    let addDays = 30;
+    const explicitDays = days !== undefined && days !== null ? days : validity;
+    if (explicitDays !== undefined && explicitDays !== null) {
+      addDays = parseInt(explicitDays);
+    } else if (durationMonths !== undefined && durationMonths !== null) {
+      const months = parseInt(durationMonths);
+      addDays = months * 30;
+    }
+    user.paidUntil = new Date(Date.now() + addDays * 24 * 60 * 60 * 1000);
     
     await user.save();
     res.status(200).json({ message: 'Subscription updated', user });
