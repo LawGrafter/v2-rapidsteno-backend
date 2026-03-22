@@ -38,7 +38,9 @@ app.use(
       "https://www.rapidsteno.in",
       "https://rapidstenographer.vercel.app",
       "https://rapidsteno.vercel.app",
-      "https://rapid-steno-api.vercel.app"
+      "https://rapid-steno-api.vercel.app",
+      "https://v2-rapidsteno-frontend.vercel.app",
+      "https://v2-rapidsteno-backend.vercel.app"
     ], // Allow frontend domains
     methods: "GET,POST,PUT,DELETE,PATCH,OPTIONS",
     allowedHeaders: ["Content-Type", "Authorization", "x-session-token"],
