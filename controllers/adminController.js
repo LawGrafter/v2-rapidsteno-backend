@@ -11,6 +11,109 @@ const { computeNextCycle, validatePlanAndMonths, computeCycleWithMonths, validat
 
 const otpStore = {}; // In-memory OTP store
 
+// ✅ Admin users for WhatsApp OTP login
+const ADMIN_USERS = [
+  { id: 'aquib', name: 'Mohammad Aquib', phone: '916394058460' },
+  { id: 'tarun', name: 'Tarun Sharma',   phone: '918318919787' },
+];
+
+// ✅ Send OTP via AI Sensy WhatsApp
+const sendWhatsAppOtp = async (phone, name, otp) => {
+  const payload = {
+    apiKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5NGQxYWFkNmY3MGEyMGQ3OWIyMDFkZCIsIm5hbWUiOiJSYXBpZCBTdGVubyIsImFwcE5hbWUiOiJBaVNlbnN5IiwiY2xpZW50SWQiOiI2OTRkMWFhZDZmNzBhMjBkNzliMjAxZDgiLCJhY3RpdmVQbGFuIjoiRlJFRV9GT1JFVkVSIiwiaWF0IjoxNzY2NjYwNzgxfQ.oBhYKecjriIJ6Zih3ZxUus9S-7v7__OxxZjKVE7gRxE",
+    campaignName: "rapid_steno_study_room_login_otp",
+    destination: phone,
+    userName: name,
+    templateParams: [otp],
+    source: "admin-login",
+    media: {},
+    buttons: [
+      {
+        type: "button",
+        sub_type: "url",
+        index: 0,
+        parameters: [{ type: "text", text: otp }]
+      }
+    ],
+    carouselCards: [],
+    location: {},
+    attributes: {},
+    paramsFallbackValue: { FirstName: name.split(' ')[0] }
+  };
+
+  const response = await fetch('https://backend.aisensy.com/campaign/t1/api/v2', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  const data = await response.json();
+  console.log('📱 AI Sensy WhatsApp response:', data);
+  return data;
+};
+
+// ✅ Step 1: Admin selects themselves → send WhatsApp OTP
+exports.requestAdminWhatsAppOtp = async (req, res) => {
+  const { adminId } = req.body;
+
+  const adminUser = ADMIN_USERS.find(a => a.id === adminId);
+  if (!adminUser) return res.status(400).json({ message: 'Invalid admin selection' });
+
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
+
+  otpStore[adminUser.phone] = { otp, expiresAt, adminId };
+  console.log(`📱 Sending WhatsApp OTP to ${adminUser.name} (${adminUser.phone}): ${otp}`);
+
+  try {
+    await sendWhatsAppOtp(adminUser.phone, adminUser.name, otp);
+    return res.status(200).json({
+      message: 'OTP sent to your WhatsApp',
+      phone: adminUser.phone.slice(-4), // last 4 digits only for display
+      name: adminUser.name
+    });
+  } catch (err) {
+    console.error('❌ Error sending WhatsApp OTP:', err);
+    return res.status(500).json({ message: 'Failed to send WhatsApp OTP' });
+  }
+};
+
+// ✅ Step 2: Verify WhatsApp OTP and issue JWT
+exports.verifyAdminWhatsAppOtp = (req, res) => {
+  const { adminId, otp } = req.body;
+
+  const adminUser = ADMIN_USERS.find(a => a.id === adminId);
+  if (!adminUser) return res.status(400).json({ message: 'Invalid admin selection' });
+
+  const stored = otpStore[adminUser.phone];
+  if (!stored) return res.status(400).json({ message: 'No OTP requested. Please request a new OTP.' });
+  if (stored.expiresAt < new Date()) return res.status(400).json({ message: 'OTP expired. Please request a new one.' });
+  if (stored.otp !== otp.trim()) return res.status(401).json({ message: 'Incorrect OTP. Please try again.' });
+
+  // OTP valid → clear from memory
+  delete otpStore[adminUser.phone];
+
+  const token = jwt.sign(
+    { isAdmin: true, adminId: adminUser.id, name: adminUser.name },
+    SECRET_KEY,
+    { expiresIn: '24h' }
+  );
+
+  console.log(`✅ Admin ${adminUser.name} logged in via WhatsApp OTP`);
+
+  return res.status(200).json({
+    message: 'Login successful',
+    token,
+    admin: { id: adminUser.id, name: adminUser.name }
+  });
+};
+
+// ✅ Get admin users list (public - for login screen)
+exports.getAdminUsers = (req, res) => {
+  const list = ADMIN_USERS.map(a => ({ id: a.id, name: a.name }));
+  return res.status(200).json(list);
+};
+
 // Step 1: Email & password check, then send OTP
 exports.adminLoginRequestOtp = async (req, res) => {
   const { email, password } = req.body;
@@ -45,7 +148,7 @@ exports.adminVerifyOtp = (req, res) => {
   // OTP valid, clear from memory
   delete otpStore[email];
 
-  const token = jwt.sign({ email }, SECRET_KEY, { expiresIn: '7h' });
+  const token = jwt.sign({ email }, SECRET_KEY, { expiresIn: '24h' });
 
   return res.status(200).json({
     message: 'Login successful',
@@ -81,10 +184,16 @@ exports.adminLogin = async (req, res) => {
 
 exports.getAllUsers = async (req, res) => {
   try {
+    console.log('📋 getAllUsers called');
+    console.log('🔑 Admin from middleware:', req.admin);
+    console.log('📊 Fetching users from database...');
+    
     const users = await User.find().select('-password').sort({ createdAt: -1 });
+    
+    console.log(`✅ Found ${users.length} users`);
     res.status(200).json(users);
   } catch (error) {
-    console.error('Error fetching users:', error);
+    console.error('❌ Error fetching users:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

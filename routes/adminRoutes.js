@@ -48,11 +48,15 @@ router.delete('/dictation-submissions/:submissionId', adminAuth, adminController
 // ✅ Admin: Get ALL User Dictation Submissions
 router.get('/dictation-submissions', adminAuth, adminController.getAllUserDictationSubmissions);
 
-// ✅ Admin Login Routes
+// ✅ Admin Login Routes (legacy email OTP)
 router.post('/login', adminController.adminLogin);
 router.post('/login/request-otp', adminController.adminLoginRequestOtp);
 router.post('/login/verify-otp', adminController.adminVerifyOtp);
 
+// ✅ Admin WhatsApp OTP Login Routes
+router.get('/login/admin-users', adminController.getAdminUsers);
+router.post('/login/whatsapp-otp/request', adminController.requestAdminWhatsAppOtp);
+router.post('/login/whatsapp-otp/verify', adminController.verifyAdminWhatsAppOtp);
 
 // ✅ Admin Protected Routes
 router.post('/mark-paid', adminAuth, adminController.markUserAsPaid);

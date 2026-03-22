@@ -51,7 +51,7 @@
 // };
 const jwt = require('jsonwebtoken');
 const SECRET_KEY = process.env.JWT_SECRET;
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL; 
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
 
 module.exports = (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -65,20 +65,19 @@ module.exports = (req, res, next) => {
   try {
     const decoded = jwt.verify(token, SECRET_KEY);
 
-    const { adminEmail } = require('../models/adminModel');
-    // if (decoded.email !== adminEmail) {
-    //   return res.status(403).json({ message: 'Access Denied: Not an admin token' });
-    // }
-    
-
-    // ✅ Check if token email matches allowed admin email
-    if (decoded.email !== ADMIN_EMAIL) {
-      return res.status(403).json({ message: 'Access Denied: Not an admin token' });
+    // ✅ New WhatsApp OTP login — isAdmin flag in token
+    if (decoded.isAdmin === true) {
+      req.admin = { id: decoded.adminId, name: decoded.name };
+      return next();
     }
 
+    // ✅ Legacy email-based token — backward compatibility
+    if (decoded.email && decoded.email === ADMIN_EMAIL) {
+      req.admin = decoded;
+      return next();
+    }
 
-    req.admin = decoded;
-    next();
+    return res.status(403).json({ message: 'Access Denied: Not an admin token' });
   } catch (err) {
     return res.status(401).json({ message: 'Invalid or expired token' });
   }
