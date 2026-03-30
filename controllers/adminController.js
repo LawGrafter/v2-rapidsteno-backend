@@ -461,6 +461,26 @@ exports.getUserDeviceReport = async (req, res) => {
   }
 };
 
+// ✅ Force logout a user (admin only) — clears sessionToken so next request is rejected
+exports.adminForceLogoutUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    // Clear the sessionToken on the user — userMiddleware compares this field,
+    // so wiping it immediately invalidates any active session.
+    await User.findByIdAndUpdate(id, { $unset: { sessionToken: "" } });
+    // Also deactivate all UserSession records for good measure
+    const result = await UserSession.updateMany(
+      { user: id, isActive: true },
+      { $set: { isActive: false } }
+    );
+    console.log(`🔴 Admin force-logged out user ${id} — sessionToken cleared, ${result.modifiedCount} session(s) deactivated`);
+    res.status(200).json({ message: 'User has been logged out successfully', sessionsCleared: result.modifiedCount });
+  } catch (error) {
+    console.error('Error force-logging out user:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 // ✅ Get Users with Multiple Devices (>2)
 exports.getMultiDeviceUsers = async (req, res) => {
   try {

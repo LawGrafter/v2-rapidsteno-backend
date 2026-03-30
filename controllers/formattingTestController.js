@@ -14,6 +14,7 @@ const createFormattingResult = async (req, res) => {
     const {
       matterId,
       dictationId,
+      template,
       formattingMistakes,
       wordMistakes,
       punctuationMistakes,
@@ -55,6 +56,7 @@ const createFormattingResult = async (req, res) => {
       user: userId,
       matter: matterId || undefined,
       dictation: dictationId || undefined,
+      template: template || 'default',
       formattingMistakes: formattingMistakes
         ? {
             total: Number(formattingMistakes.total ?? formattingMistakesCount),
@@ -144,56 +146,60 @@ module.exports = {
 // @access  Private (Admin)
 const getFormattingResultsGroupedByUser = async (req, res) => {
   try {
-    const records = await FormattingTestResult.find()
-      .populate('user', 'firstName lastName email')
-      .populate('matter', 'title category difficulty')
-      .populate('dictation', 'title type')
-      .lean();
-
-    const byUser = new Map();
-
-    for (const r of records) {
-      const u = r.user || {};
-      const userId = u._id ? String(u._id) : 'unknown';
-      if (!byUser.has(userId)) {
-        byUser.set(userId, {
-          userId: u._id || null,
-          name: [u.firstName, u.lastName].filter(Boolean).join(' ').trim() || null,
-          email: u.email || null,
-          submissions: [],
-        });
-      }
-
-      // shape each submission for admin list
-      byUser.get(userId).submissions.push({
-        _id: r._id,
-        createdAt: r.createdAt,
-        updatedAt: r.updatedAt,
-        matter: r.matter || null,
-        dictation: r.dictation || null,
-        wordsTyped: r.wordsTyped,
-        totalWords: r.totalWords,
-        markPerMistake: r.markPerMistake,
-        totals: {
-          wordMistakes: r.wordMistakesCount,
-          formattingMistakes: r.formattingMistakesCount,
-          punctuationMistakes: r.punctuationMistakesCount,
-          totalMistakes: r.totalMistakes,
+    // Use aggregation to group on the DB side — avoids loading all 12k+ docs into memory.
+    // Also exclude rawPayload and details arrays which can be 10-20KB per submission.
+    const pipeline = [
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'user',
+          foreignField: '_id',
+          as: 'userInfo',
+          pipeline: [{ $project: { firstName: 1, lastName: 1, email: 1 } }],
         },
-        marks: {
-          deducted: r.marksDeducted,
-          awarded: r.marksAwarded,
+      },
+      { $unwind: { path: '$userInfo', preserveNullAndEmptyArrays: true } },
+      {
+        $group: {
+          _id: '$user',
+          firstName:  { $first: '$userInfo.firstName' },
+          lastName:   { $first: '$userInfo.lastName' },
+          email:      { $first: '$userInfo.email' },
+          submissions: {
+            $push: {
+              _id:           '$_id',
+              template:      '$template',
+              createdAt:     '$createdAt',
+              wordsTyped:    '$wordsTyped',
+              totalWords:    '$totalWords',
+              markPerMistake:'$markPerMistake',
+              totals: {
+                wordMistakes:        '$wordMistakesCount',
+                formattingMistakes:  '$formattingMistakesCount',
+                punctuationMistakes: '$punctuationMistakesCount',
+                totalMistakes:       '$totalMistakes',
+              },
+              marks: {
+                deducted: '$marksDeducted',
+                awarded:  '$marksAwarded',
+              },
+            },
+          },
         },
-        formattingMistakes: r.formattingMistakes,
-        wordMistakes: r.wordMistakes,
-        punctuationMistakes: r.punctuationMistakes,
-        formula: r.formula || null,
-        notes: r.notes || null,
-      });
-    }
+      },
+      {
+        $project: {
+          userId:      '$_id',
+          name:        { $trim: { input: { $concat: [{ $ifNull: ['$firstName', ''] }, ' ', { $ifNull: ['$lastName', ''] }] } } },
+          email:       1,
+          submissions: 1,
+        },
+      },
+    ];
 
-    const result = Array.from(byUser.values());
-    return res.status(200).json({ totalUsers: result.length, users: result });
+    const grouped = await FormattingTestResult.aggregate(pipeline);
+
+    return res.status(200).json({ totalUsers: grouped.length, users: grouped });
   } catch (error) {
     console.error('Error grouping formatting results by user:', error);
     return res.status(500).json({ message: 'Server error', error: error.message });
@@ -368,72 +374,100 @@ const getAllUsersBestFormattingData = async (req, res) => {
 // @access  Public
 const getPublicFormattingLeaderboard = async (req, res) => {
   try {
-    // Get all users with their formatting test results
-    const results = await FormattingTestResult.find()
-      .populate('user', 'firstName lastName email')
-      .lean();
-    
-    if (!results.length) {
-      return res.status(200).json({ 
-        message: 'No formatting test data found',
-        users: []
-      });
-    }
-    
-    // Group by user
-    const userMap = new Map();
-    
-    for (const result of results) {
-      if (!result.user || !result.user._id) continue;
-      
-      const userId = result.user._id.toString();
-      
-      if (!userMap.has(userId)) {
-        userMap.set(userId, {
-          // Only include non-sensitive user data for public endpoint
-          name: `${result.user.firstName || ''} ${result.user.lastName || ''}`.trim(),
-          bestSubmission: null,
-          highestAccuracy: 0,
-          highestMarks: 0
-        });
-      }
-      
-      const user = userMap.get(userId);
-      
-      // Calculate accuracy
-      const totalPossibleMistakes = result.totalWords;
-      const mistakePercentage = (result.totalMistakes / totalPossibleMistakes) * 100;
-      const accuracy = 100 - Math.min(mistakePercentage, 100);
-      
-      // Update best submission if this one has higher marks
-      if (result.marksAwarded > user.highestMarks) {
-        user.highestMarks = result.marksAwarded;
-        user.bestSubmission = {
-          date: result.createdAt,
-          marksAwarded: result.marksAwarded,
-          accuracy,
-          mistakes: {
-            formatting: result.formattingMistakesCount,
-            word: result.wordMistakesCount,
-            punctuation: result.punctuationMistakesCount,
-            total: result.totalMistakes
-          }
-        };
-      }
-      
-      // Update highest accuracy if this one is better
-      if (accuracy > user.highestAccuracy) {
-        user.highestAccuracy = accuracy;
-      }
-    }
-    
-    // Convert map to array and sort by highest marks
-    const usersArray = Array.from(userMap.values())
-      .sort((a, b) => b.highestMarks - a.highestMarks);
-    
+    const pipeline = [
+      // Project only the fields we need — strips rawPayload, details arrays, notes, formula etc.
+      {
+        $project: {
+          user: 1,
+          template: 1,
+          createdAt: 1,
+          marksAwarded: 1,
+          totalMistakes: 1,
+          totalWords: 1,
+          wordMistakesCount: 1,
+          formattingMistakesCount: 1,
+          punctuationMistakesCount: 1,
+        },
+      },
+      // Compute accuracy inline so we can aggregate it
+      {
+        $addFields: {
+          accuracy: {
+            $subtract: [
+              100,
+              { $min: [{ $multiply: [{ $divide: ['$totalMistakes', { $max: ['$totalWords', 1] }] }, 100] }, 100] },
+            ],
+          },
+        },
+      },
+      // Sort so that within each user the best (highest marks, most recent) doc comes first
+      { $sort: { marksAwarded: -1, createdAt: -1 } },
+      // Group by user: pick best submission ($first after sort) and track max accuracy
+      {
+        $group: {
+          _id: '$user',
+          highestMarks:        { $max: '$marksAwarded' },
+          highestAccuracy:     { $max: '$accuracy' },
+          bestDate:            { $first: '$createdAt' },
+          bestTemplate:        { $first: '$template' },
+          bestMarksAwarded:    { $first: '$marksAwarded' },
+          bestAccuracy:        { $first: '$accuracy' },
+          bestTotalMistakes:   { $first: '$totalMistakes' },
+          bestWordMistakes:    { $first: '$wordMistakesCount' },
+          bestFormatMistakes:  { $first: '$formattingMistakesCount' },
+          bestPunctMistakes:   { $first: '$punctuationMistakesCount' },
+        },
+      },
+      // Join user name (firstName + lastName only — no email on public endpoint)
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'userInfo',
+          pipeline: [{ $project: { firstName: 1, lastName: 1 } }],
+        },
+      },
+      { $unwind: { path: '$userInfo', preserveNullAndEmptyArrays: true } },
+      // Final shape
+      {
+        $project: {
+          name: {
+            $trim: {
+              input: {
+                $concat: [
+                  { $ifNull: ['$userInfo.firstName', ''] },
+                  ' ',
+                  { $ifNull: ['$userInfo.lastName', ''] },
+                ],
+              },
+            },
+          },
+          highestMarks:    1,
+          highestAccuracy: 1,
+          bestSubmission: {
+            date:        '$bestDate',
+            template:    '$bestTemplate',
+            marksAwarded:'$bestMarksAwarded',
+            accuracy:    '$bestAccuracy',
+            mistakes: {
+              total:       '$bestTotalMistakes',
+              word:        '$bestWordMistakes',
+              formatting:  '$bestFormatMistakes',
+              punctuation: '$bestPunctMistakes',
+            },
+          },
+        },
+      },
+      // Sort leaderboard by highest marks desc
+      { $sort: { highestMarks: -1, highestAccuracy: -1 } },
+    ];
+
+    const usersArray = await FormattingTestResult.aggregate(pipeline);
+
     return res.status(200).json({
       totalUsers: usersArray.length,
-      users: usersArray
+      users: usersArray,
     });
   } catch (error) {
     console.error('Error fetching public formatting leaderboard:', error);

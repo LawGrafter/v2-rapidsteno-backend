@@ -20,6 +20,7 @@ const typingTestRoutes = require('./routes/typingTestRoutes');
 const formattingTestRoutes = require('./routes/formattingTestRoutes');
 const selfPracticeRoutes = require('./routes/selfPracticeRoutes');
 const matterReadingRoutes = require('./routes/matterReadingRoutes');
+const testRecordingRoutes = require('./routes/testRecordingRoutes');
 
 // ✅ Load env and establish DB connection BEFORE scheduling background jobs
 dotenv.config();
@@ -70,6 +71,7 @@ app.use('/api/typing-test', typingTestRoutes);
 app.use('/api/formatting-test', formattingTestRoutes);
 app.use('/api/self-practice', selfPracticeRoutes);
 app.use('/api/matter-reading', matterReadingRoutes);
+app.use('/api/test-recordings', testRecordingRoutes);
 app.use('/api/all-exam-aspirants', require('./routes/allExamAspirantRoutes'));
 app.use('/api/admin-activity', require('./routes/adminActivityRoutes')); // ✅ Admin User Activity Logs
 

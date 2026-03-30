@@ -78,7 +78,10 @@ router.get('/users/:id/weekly-report', adminAuth, adminController.adminWeeklyUse
 router.get('/reports/multi-device-users', adminAuth, adminController.getMultiDeviceUsers);
 
 // ✅ Admin: User Device & Security Report
-router.get('/users/:userId/device-report', adminAuth, adminController.getUserDeviceReport);
+router.get('/users/:userId/device-report', adminController.getUserDeviceReport);
+
+// ✅ Admin: Force logout a user (invalidate all active sessions)
+router.post('/users/:id/force-logout', adminAuth, adminController.adminForceLogoutUser);
 
 // ✅ NEW: Get user by email
 router.get('/user-by-email/:email', adminAuth, async (req, res) => {

@@ -410,3 +410,42 @@ exports.downloadAllAudio = async (req, res) => {
     }
   }
 };
+
+// ✅ Bulk fix: capitalize first letter after every full stop across all dictations
+exports.bulkFixCapitalization = async (req, res) => {
+  try {
+    const all = await Dictation.find({}, '_id title paragraphText');
+    let fixed = 0;
+    let skipped = 0; // no change needed
+    let failed = 0;
+    const failedTitles = [];
+
+    for (const doc of all) {
+      if (!doc.paragraphText) { skipped++; continue; }
+      const corrected = doc.paragraphText.replace(/\.(\s+)([a-z])/g, (m, sp, c) => '.' + sp + c.toUpperCase());
+      if (corrected === doc.paragraphText) { skipped++; continue; }
+      try {
+        await Dictation.findByIdAndUpdate(doc._id, { $set: { paragraphText: corrected } });
+        fixed++;
+      } catch (updateErr) {
+        failed++;
+        failedTitles.push(doc.title || String(doc._id));
+        console.error(`Failed to fix "${doc.title}":`, updateErr.message);
+      }
+    }
+
+    console.log(`✅ Bulk capitalization fix: ${fixed} fixed, ${failed} failed, ${skipped} skipped out of ${all.length} total`);
+    res.status(200).json({
+      success: true,
+      total: all.length,
+      fixed,
+      skipped,
+      failed,
+      failedTitles,
+      message: `Fixed ${fixed} dictation(s). ${failed} failed. ${skipped} already correct.`,
+    });
+  } catch (err) {
+    console.error('Bulk fix capitalization error:', err);
+    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  }
+};

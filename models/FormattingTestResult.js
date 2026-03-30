@@ -12,6 +12,9 @@ const formattingTestResultSchema = new mongoose.Schema({
   // Optional linkage to a matter/exercise if applicable (keep optional to be flexible)
   matter: { type: mongoose.Schema.Types.ObjectId, ref: 'TypingMatter' },
   dictation: { type: mongoose.Schema.Types.ObjectId, ref: 'Dictation' },
+  
+  // Template identifier
+  template: { type: String, default: 'default' },
 
   // Sections
   formattingMistakes: formattingDetailSchema, // Formatting Mistakes (Bold/Italic/Underline/Indent/Alignment)

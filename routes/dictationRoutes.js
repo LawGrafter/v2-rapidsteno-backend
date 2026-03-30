@@ -26,4 +26,7 @@ router.get('/getbyid/:id', adminProtect, dictationController.getDictationById);
 router.put('/update/:id', adminProtect, dictationController.updateDictation);
 router.delete('/delete/:id', adminProtect, dictationController.deleteDictation);
 
+// ✅ Admin: Bulk fix capitalization after full stops
+router.post('/admin/fix-capitalization', adminProtect, dictationController.bulkFixCapitalization);
+
 module.exports = router;
