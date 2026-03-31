@@ -14,7 +14,7 @@ const {
   // forgotPassword
 } = require('../controllers/authController');
 
-const { verifyOtp, trackUserActivity, forgotPassword, resetPassword, sendOtp, markTourAsSeen, markComparisonTourAsSeen, markNotificationAsSeen, verifyOtpAndRegister, setUserSubscriptionPlan, weeklyUserReport, weeklyUserReportById } = require("../controllers/authController");
+const { verifyOtp, trackUserActivity, forgotPassword, resetPassword, sendOtp, markTourAsSeen, markComparisonTourAsSeen, markNotificationAsSeen, verifyOtpAndRegister, setUserSubscriptionPlan, weeklyUserReport, weeklyUserReportById, checkEmailExists } = require("../controllers/authController");
 const { userProtect } = require("../middleware/userMiddleware");
 const { loginRateLimiter } = require("../middleware/loginRateLimiter");
 const checkUserActivity = require('../middleware/checkUserActivity');
@@ -23,6 +23,7 @@ const { getSourceUrlComment } = require('puppeteer');
 
 const router = express.Router();
 
+router.post('/check-email', checkEmailExists);
 router.post('/send-otp', sendOtp);
 router.post('/verify-otp-register', verifyOtpAndRegister);
 

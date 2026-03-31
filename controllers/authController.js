@@ -17,6 +17,7 @@ const UserDictationSubmission = require('../models/UserDictationSubmission');
 const McqSubmission = require('../models/mcqSubmissionModel');
 const UserSession = require('../models/UserSession'); // ✅ Added
 const SecurityEvent = require('../models/SecurityEvent'); // ✅ Added
+const OtpTemp = require('../models/OtpTemp');
 
 // Helper to safely build a regex from user input
 function escapeRegex(str) {
@@ -616,9 +617,6 @@ exports.resetPassword = async (req, res) => {
 };
 
 
-// memory storage for demo (replace with Redis for production)
-const otpStore = {};
-
 exports.sendOtp = async (req, res) => {
   const { email, firstName } = req.body;
   const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
@@ -629,7 +627,12 @@ exports.sendOtp = async (req, res) => {
   if (userExists) return res.status(400).json({ message: 'User already exists' });
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  otpStore[normalizedEmail] = { otp, expiresAt: Date.now() + 10 * 60 * 1000 };
+  // Persist OTP in MongoDB so it survives across serverless instances
+  await OtpTemp.findOneAndUpdate(
+    { email: normalizedEmail },
+    { otp, expiresAt: new Date(Date.now() + 10 * 60 * 1000) },
+    { upsert: true, new: true }
+  );
 
   // send OTP
   const transporter = nodemailer.createTransport({
@@ -746,10 +749,10 @@ exports.verifyOtpAndRegister = async (req, res) => {
   } = req.body;
 
   const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
-  const stored = otpStore[normalizedEmail];
+  const stored = await OtpTemp.findOne({ email: normalizedEmail });
 
   // Validate OTP
-  if (!stored || stored.otp !== otp || Date.now() > stored.expiresAt) {
+  if (!stored || stored.otp !== otp || new Date() > stored.expiresAt) {
     return res.status(400).json({ message: 'Invalid or expired OTP' });
   }
 
@@ -798,7 +801,7 @@ exports.verifyOtpAndRegister = async (req, res) => {
     });
 
     await user.save();
-    delete otpStore[normalizedEmail]; // Remove OTP after successful registration
+    await OtpTemp.deleteOne({ email: normalizedEmail }); // Remove OTP after successful registration
 
     // Try Brevo CRM sync (non-blocking)
     try {
@@ -1432,5 +1435,19 @@ exports.weeklyUserReportById = async (req, res) => {
   } catch (error) {
     console.error('Weekly report by id error:', error);
     return res.status(500).json({ message: 'Server Error', error: error.message });
+  }
+};
+
+// ✅ Check if email already exists (used on registration Step 3)
+exports.checkEmailExists = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: 'Email is required' });
+    const normalizedEmail = email.trim().toLowerCase();
+    const existing = await User.findOne({ email: normalizedEmail }).select('_id').lean();
+    return res.status(200).json({ exists: !!existing });
+  } catch (error) {
+    console.error('checkEmailExists error:', error);
+    return res.status(500).json({ message: 'Server Error' });
   }
 };
