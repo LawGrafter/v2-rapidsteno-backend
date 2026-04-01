@@ -491,6 +491,7 @@ const getFormattingDebugLogs = async (req, res) => {
         marksAwarded: 1, totalMistakes: 1,
         wordMistakesCount: 1, formattingMistakesCount: 1, punctuationMistakesCount: 1,
         'rawPayload.debugLog': 1,
+        'rawPayload.browserInfo': 1,
       })
       .populate('user', 'firstName lastName email')
       .sort({ createdAt: -1 })
@@ -509,6 +510,7 @@ const getFormattingDebugLogs = async (req, res) => {
         wordMistakes: r.wordMistakesCount, formatMistakes: r.formattingMistakesCount,
         punctuationMistakes: r.punctuationMistakesCount },
       debugLog: (r.rawPayload && r.rawPayload.debugLog) ? r.rawPayload.debugLog : null,
+      browserInfo: (r.rawPayload && r.rawPayload.browserInfo) ? r.rawPayload.browserInfo : null,
     }));
 
     return res.status(200).json({ total: formatted.length, results: formatted });
