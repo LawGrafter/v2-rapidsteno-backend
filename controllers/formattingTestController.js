@@ -475,6 +475,32 @@ const getPublicFormattingLeaderboard = async (req, res) => {
   }
 };
 
+// @desc    Upload screen recording for a test session
+// @route   POST /api/formatting-test/recording/upload
+// @access  Private (User)
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const uploadDir = path.join(__dirname, '../uploads/recordings');
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) => {
+    const safe = (req.user && req.user._id) ? req.user._id : 'anon';
+    cb(null, `rec_${safe}_${Date.now()}.webm`);
+  },
+});
+const upload = multer({ storage, limits: { fileSize: 2 * 1024 * 1024 * 1024 } });
+const uploadRecordingMiddleware = upload.single('recording');
+const uploadRecording = (req, res) => {
+  uploadRecordingMiddleware(req, res, (err) => {
+    if (err) return res.status(400).json({ message: 'Upload failed', error: err.message });
+    if (!req.file) return res.status(400).json({ message: 'No file received' });
+    const url = `/uploads/recordings/${req.file.filename}`;
+    return res.status(200).json({ url });
+  });
+};
+
 // @desc    Admin: Get scoring debug logs (rawPayload.debugLog) for recent submissions
 // @route   GET /api/formatting-test/admin/debug-logs
 // @access  Private (Admin)
@@ -492,6 +518,7 @@ const getFormattingDebugLogs = async (req, res) => {
         wordMistakesCount: 1, formattingMistakesCount: 1, punctuationMistakesCount: 1,
         'rawPayload.debugLog': 1,
         'rawPayload.browserInfo': 1,
+        'rawPayload.recordingUrl': 1,
       })
       .populate('user', 'firstName lastName email')
       .sort({ createdAt: -1 })
@@ -511,6 +538,7 @@ const getFormattingDebugLogs = async (req, res) => {
         punctuationMistakes: r.punctuationMistakesCount },
       debugLog: (r.rawPayload && r.rawPayload.debugLog) ? r.rawPayload.debugLog : null,
       browserInfo: (r.rawPayload && r.rawPayload.browserInfo) ? r.rawPayload.browserInfo : null,
+      recordingUrl: (r.rawPayload && r.rawPayload.recordingUrl) ? r.rawPayload.recordingUrl : null,
     }));
 
     return res.status(200).json({ total: formatted.length, results: formatted });
@@ -525,3 +553,4 @@ module.exports.getUserFormattingAnalytics = getUserFormattingAnalytics;
 module.exports.getAllUsersBestFormattingData = getAllUsersBestFormattingData;
 module.exports.getPublicFormattingLeaderboard = getPublicFormattingLeaderboard;
 module.exports.getFormattingDebugLogs = getFormattingDebugLogs;
+module.exports.uploadRecording = uploadRecording;

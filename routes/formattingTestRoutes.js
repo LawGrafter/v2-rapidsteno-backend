@@ -9,6 +9,7 @@ const {
   getAllUsersBestFormattingData,
   getPublicFormattingLeaderboard,
   getFormattingDebugLogs,
+  uploadRecording,
 } = require('../controllers/formattingTestController');
 const { userProtect } = require('../middleware/userMiddleware');
 const adminProtect = require('../middleware/adminMiddleware');
@@ -18,6 +19,7 @@ router.get('/leaderboard', userProtect, getPublicFormattingLeaderboard);
 
 // User endpoints
 router.post('/result', userProtect, createFormattingResult);
+router.post('/recording/upload', userProtect, uploadRecording);
 router.get('/my-results', userProtect, getMyFormattingResults);
 router.get('/analytics', userProtect, getUserFormattingAnalytics);
 
