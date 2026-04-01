@@ -539,7 +539,7 @@ const getFormattingDebugLogs = async (req, res) => {
       } : null,
       score: { marksAwarded: r.marksAwarded, totalMistakes: r.totalMistakes,
         wordMistakes: r.wordMistakesCount, formatMistakes: r.formattingMistakesCount,
-        punctuationMistakes: r.punctuationMistakesCount },
+        punctuationMistakes: r.punctuationMistakesCount, lineBreakMistakes: r.lineBreakMistakesCount ?? 0 },
       debugLog: (r.rawPayload && r.rawPayload.debugLog) ? r.rawPayload.debugLog : null,
       browserInfo: (r.rawPayload && r.rawPayload.browserInfo) ? r.rawPayload.browserInfo : null,
       recordingUrl: (r.rawPayload && r.rawPayload.recordingUrl) ? r.rawPayload.recordingUrl : null,
