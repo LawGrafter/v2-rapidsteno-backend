@@ -481,18 +481,22 @@ const getPublicFormattingLeaderboard = async (req, res) => {
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const uploadDir = path.join(__dirname, '../uploads/recordings');
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+const isVercel = !!process.env.VERCEL;
+const uploadDir = isVercel
+  ? '/tmp/recordings'
+  : path.join(__dirname, '../uploads/recordings');
+try { if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true }); } catch (_) {}
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => {
-    const safe = (req.user && req.user._id) ? req.user._id : 'anon';
+    const safe = (req.user && req.user._id) ? String(req.user._id) : 'anon';
     cb(null, `rec_${safe}_${Date.now()}.webm`);
   },
 });
 const upload = multer({ storage, limits: { fileSize: 2 * 1024 * 1024 * 1024 } });
 const uploadRecordingMiddleware = upload.single('recording');
 const uploadRecording = (req, res) => {
+  if (isVercel) return res.status(503).json({ message: 'Recording upload not supported on this deployment. Use localhost backend.' });
   uploadRecordingMiddleware(req, res, (err) => {
     if (err) return res.status(400).json({ message: 'Upload failed', error: err.message });
     if (!req.file) return res.status(400).json({ message: 'No file received' });
