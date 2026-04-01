@@ -7,7 +7,8 @@ const {
   getFormattingResultsGroupedByUser,
   getUserFormattingAnalytics,
   getAllUsersBestFormattingData,
-  getPublicFormattingLeaderboard
+  getPublicFormattingLeaderboard,
+  getFormattingDebugLogs,
 } = require('../controllers/formattingTestController');
 const { userProtect } = require('../middleware/userMiddleware');
 const adminProtect = require('../middleware/adminMiddleware');
@@ -24,5 +25,6 @@ router.get('/analytics', userProtect, getUserFormattingAnalytics);
 router.get('/all', adminProtect, getAllFormattingResults);
 router.get('/admin/users', adminProtect, getFormattingResultsGroupedByUser);
 router.get('/admin/best-submissions', adminProtect, getAllUsersBestFormattingData);
+router.get('/admin/debug-logs', adminProtect, getFormattingDebugLogs);
 
 module.exports = router;

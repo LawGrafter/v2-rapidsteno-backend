@@ -475,7 +475,51 @@ const getPublicFormattingLeaderboard = async (req, res) => {
   }
 };
 
+// @desc    Admin: Get scoring debug logs (rawPayload.debugLog) for recent submissions
+// @route   GET /api/formatting-test/admin/debug-logs
+// @access  Private (Admin)
+const getFormattingDebugLogs = async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+    const template = req.query.template;
+    const filter = {};
+    if (template) filter.template = template;
+
+    const results = await FormattingTestResult
+      .find(filter, {
+        user: 1, template: 1, createdAt: 1,
+        marksAwarded: 1, totalMistakes: 1,
+        wordMistakesCount: 1, formattingMistakesCount: 1, punctuationMistakesCount: 1,
+        'rawPayload.debugLog': 1,
+      })
+      .populate('user', 'firstName lastName email')
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+
+    const formatted = results.map(r => ({
+      _id: r._id,
+      createdAt: r.createdAt,
+      template: r.template,
+      user: r.user ? {
+        name: `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim(),
+        email: r.user.email,
+      } : null,
+      score: { marksAwarded: r.marksAwarded, totalMistakes: r.totalMistakes,
+        wordMistakes: r.wordMistakesCount, formatMistakes: r.formattingMistakesCount,
+        punctuationMistakes: r.punctuationMistakesCount },
+      debugLog: (r.rawPayload && r.rawPayload.debugLog) ? r.rawPayload.debugLog : null,
+    }));
+
+    return res.status(200).json({ total: formatted.length, results: formatted });
+  } catch (error) {
+    console.error('Error fetching formatting debug logs:', error);
+    return res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 // Add new exports
 module.exports.getUserFormattingAnalytics = getUserFormattingAnalytics;
 module.exports.getAllUsersBestFormattingData = getAllUsersBestFormattingData;
 module.exports.getPublicFormattingLeaderboard = getPublicFormattingLeaderboard;
+module.exports.getFormattingDebugLogs = getFormattingDebugLogs;
