@@ -51,6 +51,9 @@ const createFormattingResult = async (req, res) => {
       }
     }
 
+    // Keep only the latest submission per user — delete all previous ones
+    await FormattingTestResult.deleteMany({ user: userId });
+
     // Build the document
     const doc = new FormattingTestResult({
       user: userId,
@@ -510,42 +513,106 @@ const uploadRecording = (req, res) => {
 // @access  Private (Admin)
 const getFormattingDebugLogs = async (req, res) => {
   try {
-    const limit = Math.min(parseInt(req.query.limit) || 50, 200);
-    const template = req.query.template;
-    const filter = {};
-    if (template) filter.template = template;
+    const limit = Math.min(parseInt(req.query.limit) || 50, 500);
+    const page  = Math.max(parseInt(req.query.page)  || 0, 0);
+    const skip  = page * limit;
+    const template  = req.query.template  || '';
+    const search    = req.query.search    || '';
+    const dateFrom  = req.query.dateFrom  || '';
+    const dateTo    = req.query.dateTo    || '';
 
-    const results = await FormattingTestResult
-      .find(filter, {
-        user: 1, template: 1, createdAt: 1,
-        marksAwarded: 1, totalMistakes: 1,
-        wordMistakesCount: 1, formattingMistakesCount: 1, punctuationMistakesCount: 1,
-        'rawPayload.debugLog': 1,
-        'rawPayload.browserInfo': 1,
-        'rawPayload.recordingUrl': 1,
-      })
-      .populate('user', 'firstName lastName email')
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .lean();
+    const pipeline = [];
 
-    const formatted = results.map(r => ({
+    // 1. Date / template pre-filter (uses collection index)
+    const preMatch = {};
+    if (template) preMatch.template = template;
+    if (dateFrom || dateTo) {
+      preMatch.createdAt = {};
+      if (dateFrom) preMatch.createdAt.$gte = new Date(dateFrom);
+      if (dateTo)   preMatch.createdAt.$lte = new Date(new Date(dateTo).setHours(23, 59, 59, 999));
+    }
+    if (Object.keys(preMatch).length) pipeline.push({ $match: preMatch });
+
+    // 2. Sort newest-first BEFORE grouping so $first == latest
+    pipeline.push({ $sort: { createdAt: -1 } });
+
+    // 3. Keep only the latest submission per user
+    pipeline.push({ $group: { _id: '$user', doc: { $first: '$$ROOT' } } });
+    pipeline.push({ $replaceRoot: { newRoot: '$doc' } });
+
+    // 4. Join users for name/email display & search
+    pipeline.push({
+      $lookup: {
+        from: 'users',
+        localField: 'user',
+        foreignField: '_id',
+        as: 'userInfo',
+        pipeline: [{ $project: { firstName: 1, lastName: 1, email: 1 } }],
+      },
+    });
+    pipeline.push({ $unwind: { path: '$userInfo', preserveNullAndEmptyArrays: true } });
+
+    // 5. Search by user name / email
+    if (search) {
+      pipeline.push({
+        $match: {
+          $or: [
+            { 'userInfo.firstName': { $regex: search, $options: 'i' } },
+            { 'userInfo.lastName':  { $regex: search, $options: 'i' } },
+            { 'userInfo.email':     { $regex: search, $options: 'i' } },
+          ],
+        },
+      });
+    }
+
+    // 6. Re-sort after group (group destroys order)
+    pipeline.push({ $sort: { createdAt: -1 } });
+
+    // Facet for total + paginated results
+    pipeline.push({
+      $facet: {
+        total: [{ $count: 'count' }],
+        results: [
+          { $skip: skip },
+          { $limit: limit },
+          {
+            $project: {
+              _id: 1, createdAt: 1, template: 1,
+              marksAwarded: 1, totalMistakes: 1,
+              wordMistakesCount: 1, formattingMistakesCount: 1,
+              punctuationMistakesCount: 1, lineBreakMistakesCount: 1,
+              'rawPayload.debugLog': 1,
+              'rawPayload.browserInfo': 1,
+              'rawPayload.recordingUrl': 1,
+              userInfo: 1,
+            },
+          },
+        ],
+      },
+    });
+
+    const [agg] = await FormattingTestResult.aggregate(pipeline);
+    const total = agg?.total?.[0]?.count || 0;
+
+    const formatted = (agg?.results || []).map(r => ({
       _id: r._id,
       createdAt: r.createdAt,
       template: r.template,
-      user: r.user ? {
-        name: `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim(),
-        email: r.user.email,
+      user: r.userInfo ? {
+        name: `${r.userInfo.firstName || ''} ${r.userInfo.lastName || ''}`.trim(),
+        email: r.userInfo.email,
       } : null,
-      score: { marksAwarded: r.marksAwarded, totalMistakes: r.totalMistakes,
+      score: {
+        marksAwarded: r.marksAwarded, totalMistakes: r.totalMistakes,
         wordMistakes: r.wordMistakesCount, formatMistakes: r.formattingMistakesCount,
-        punctuationMistakes: r.punctuationMistakesCount, lineBreakMistakes: r.lineBreakMistakesCount ?? 0 },
-      debugLog: (r.rawPayload && r.rawPayload.debugLog) ? r.rawPayload.debugLog : null,
-      browserInfo: (r.rawPayload && r.rawPayload.browserInfo) ? r.rawPayload.browserInfo : null,
-      recordingUrl: (r.rawPayload && r.rawPayload.recordingUrl) ? r.rawPayload.recordingUrl : null,
+        punctuationMistakes: r.punctuationMistakesCount, lineBreakMistakes: r.lineBreakMistakesCount ?? 0,
+      },
+      debugLog:    r.rawPayload?.debugLog    || null,
+      browserInfo: r.rawPayload?.browserInfo || null,
+      recordingUrl:r.rawPayload?.recordingUrl|| null,
     }));
 
-    return res.status(200).json({ total: formatted.length, results: formatted });
+    return res.status(200).json({ total, page, limit, results: formatted });
   } catch (error) {
     console.error('Error fetching formatting debug logs:', error);
     return res.status(500).json({ message: 'Server error', error: error.message });
