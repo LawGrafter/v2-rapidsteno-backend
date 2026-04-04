@@ -691,7 +691,7 @@ exports.sendInvoiceEmail = async (req, res) => {
 
     await transporter.sendMail(mailOptions);
 
-    console.log(`✅ Invoice sent to ${user.email} for ${selectedPlan.name} - ${months} month(s)`);
+    console.log(`✅ Invoice email sent successfully to ${user.email} for ${selectedPlan.name} - ${months} month(s)`);
     res.status(200).json({ 
       success: true, 
       message: `Invoice sent successfully to ${user.email}`,
