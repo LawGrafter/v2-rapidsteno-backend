@@ -633,6 +633,10 @@ exports.sendInvoiceEmail = async (req, res) => {
             <td style="text-align: right; color: #dc2626;">- ₹${discountAmount.toLocaleString('en-IN')}</td>
           </tr>
           ` : ''}
+          <tr>
+            <td colspan="2"><strong>GST (18%)</strong></td>
+            <td style="text-align: right;">₹0</td>
+          </tr>
           <tr class="total-row">
             <td colspan="2"><strong>Total Amount Paid</strong></td>
             <td style="text-align: right;" class="highlight">₹${finalPrice.toLocaleString('en-IN')}</td>
