@@ -29,4 +29,7 @@ router.delete('/delete/:id', adminProtect, dictationController.deleteDictation);
 // ✅ Admin: Bulk fix capitalization after full stops
 router.post('/admin/fix-capitalization', adminProtect, dictationController.bulkFixCapitalization);
 
+// ✅ Admin: Bulk fix court capitalization
+router.post('/admin/fix-court', adminProtect, dictationController.bulkFixCourt);
+
 module.exports = router;

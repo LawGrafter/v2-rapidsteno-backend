@@ -449,3 +449,42 @@ exports.bulkFixCapitalization = async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error', error: err.message });
   }
 };
+
+// ✅ Bulk fix: capitalize lowercase "court" to "Court" across all dictations
+exports.bulkFixCourt = async (req, res) => {
+  try {
+    const all = await Dictation.find({}, '_id title paragraphText');
+    let fixed = 0;
+    let skipped = 0;
+    let failed = 0;
+    const failedTitles = [];
+
+    for (const doc of all) {
+      if (!doc.paragraphText) { skipped++; continue; }
+      const corrected = doc.paragraphText.replace(/\bcourt\b/g, 'Court');
+      if (corrected === doc.paragraphText) { skipped++; continue; }
+      try {
+        await Dictation.findByIdAndUpdate(doc._id, { $set: { paragraphText: corrected } });
+        fixed++;
+      } catch (updateErr) {
+        failed++;
+        failedTitles.push(doc.title || String(doc._id));
+        console.error(`Failed to fix court in "${doc.title}":`, updateErr.message);
+      }
+    }
+
+    console.log(`✅ Bulk court fix: ${fixed} fixed, ${failed} failed, ${skipped} skipped out of ${all.length} total`);
+    res.status(200).json({
+      success: true,
+      total: all.length,
+      fixed,
+      skipped,
+      failed,
+      failedTitles,
+      message: `Fixed court capitalization in ${fixed} dictation(s). ${failed} failed. ${skipped} already correct.`,
+    });
+  } catch (err) {
+    console.error('Bulk fix court error:', err);
+    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  }
+};

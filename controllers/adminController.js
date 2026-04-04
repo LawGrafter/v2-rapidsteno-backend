@@ -481,6 +481,230 @@ exports.adminForceLogoutUser = async (req, res) => {
   }
 };
 
+// ✅ Send invoice email to user
+exports.sendInvoiceEmail = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { plan, months, discount } = req.body;
+
+    // Fetch user details
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Plan pricing details (from pricing-details.md)
+    const planPricing = {
+      'gold': { name: 'Gold Pass', prices: { 1: 498, 3: 894, 6: 1596 } },
+      'ahc': { name: 'AHC Pass', prices: { 1: 1299, 2: 1700, 3: 2100, 6: 3396 } },
+      'hindi': { name: 'Hindi Pass', prices: { 1: 399, 3: 894 } },
+      'pitman': { name: 'Pitman Beginner', prices: { 1: 399, 3: 777, 6: 1299 } },
+      'pitman-beginner': { name: 'Pitman Beginner', prices: { 1: 399, 3: 777, 6: 1299 } },
+      'spreadsheet': { name: 'Spreadsheet Pass', prices: { 1: 249 } },
+      'exam': { name: 'All Exam Software', prices: { 1: 199, 3: 498 } },
+      'jja': { name: 'JJA Pass', prices: { 1: 199, 3: 498 } },
+      'ssc': { name: 'SSC Steno Pass', prices: { 1: 498, 3: 894, 6: 1596 } },
+      'typing': { name: 'Typing Software', prices: { 1: 199, 3: 498, 6: 786 } },
+    };
+
+    const selectedPlan = planPricing[plan];
+    if (!selectedPlan) {
+      return res.status(400).json({ success: false, message: 'Invalid plan selected' });
+    }
+
+    const basePrice = selectedPlan.prices[months] || selectedPlan.prices[3];
+    const discountAmount = discount || 0;
+    const finalPrice = Math.max(0, basePrice - discountAmount);
+
+    // Calculate validity dates
+    const validFrom = new Date();
+    const validTo = new Date();
+    validTo.setMonth(validTo.getMonth() + months);
+
+    const formatDate = (date) => {
+      return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    };
+
+    // Generate invoice number
+    const invoiceNumber = `INV-${Date.now()}-${user._id.toString().slice(-6).toUpperCase()}`;
+
+    // HTML Email Template
+    const htmlTemplate = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invoice - Rapid Steno</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Lexend', 'Tahoma', 'Segoe UI', Geneva, Verdana, sans-serif; background-color: #f4f7f6; padding: 20px; }
+    .container { max-width: 700px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 24px rgba(1,52,47,0.15); border: 1px solid #d1fae5; }
+    .header { background: linear-gradient(135deg, #01342F 0%, #078F65 100%); padding: 30px; text-align: center; }
+    .logo { max-width: 180px; height: auto; margin-bottom: 15px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+    .header h1 { color: #ffffff; font-size: 28px; font-weight: 700; margin-bottom: 5px; }
+    .header p { color: #e8f5f0; font-size: 14px; }
+    .content { padding: 40px 30px; }
+    .invoice-header { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #e8f5f0; }
+    .invoice-number { font-size: 13px; color: #7a9e98; }
+    .invoice-number strong { color: #01342F; font-size: 16px; font-weight: 700; display: block; margin-top: 8px; word-break: break-all; }
+    .invoice-date { font-size: 13px; color: #7a9e98; text-align: right; }
+    .invoice-date strong { color: #01342F; font-size: 16px; font-weight: 700; display: block; margin-top: 8px; }
+    .section-title { color: #01342F; font-size: 16px; font-weight: 700; margin: 25px 0 15px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .info-box { background: #f9fbfa; border-left: 4px solid #078F65; padding: 15px 20px; margin-bottom: 20px; border-radius: 6px; }
+    .info-row { display: flex; justify-content: space-between; padding: 8px 0; align-items: center; }
+    .info-label { color: #7a9e98; font-size: 14px; font-weight: 500; min-width: 90px; }
+    .info-value { color: #01342F; font-size: 14px; font-weight: 600; text-align: right; flex: 1; margin-left: 10px; }
+    .table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+    .table th { background: #01342F; color: #ffffff; padding: 12px; text-align: left; font-size: 13px; font-weight: 600; }
+    .table td { padding: 12px; border-bottom: 1px solid #e8f5f0; font-size: 14px; color: #475569; }
+    .table tr:last-child td { border-bottom: none; }
+    .total-row { background: #f9fbfa; font-weight: 700; }
+    .total-row td { color: #01342F; font-size: 16px; padding: 15px 12px; }
+    .highlight { color: #078F65; font-weight: 700; font-size: 18px; }
+    .footer { background: #f9fbfa; padding: 25px 30px; text-align: center; border-top: 2px solid #e8f5f0; }
+    .footer p { color: #7a9e98; font-size: 13px; line-height: 1.6; margin: 5px 0; }
+    .footer strong { color: #01342F; }
+    .validity-box { background: linear-gradient(135deg, #dcfce7 0%, #d1fae5 100%); border: 2px solid #166534; padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center; }
+    .validity-box p { color: #166534; font-size: 14px; font-weight: 600; margin: 5px 0; }
+    .validity-box .dates { color: #01342F; font-size: 16px; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <img src="https://ik.imagekit.io/rapidsteno/atvicon-logo.jpg" alt="Atvicon Technologies" class="logo">
+      <h1>INVOICE</h1>
+      <p>Rapid Steno Subscription</p>
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+      <!-- Invoice Info -->
+      <div class="invoice-header">
+        <div class="invoice-number">
+          <span>Invoice Number</span>
+          <strong>${invoiceNumber}</strong>
+        </div>
+        <div class="invoice-date">
+          <span>Date</span>
+          <strong>${formatDate(new Date())}</strong>
+        </div>
+      </div>
+
+      <!-- Billing From -->
+      <div class="section-title">From</div>
+      <div class="info-box">
+        <div class="info-row"><div class="info-label">Company:</div><div class="info-value">Atvicon Technologies</div></div>
+        <div class="info-row"><div class="info-label">Email:</div><div class="info-value">info@rapidsteno.com</div></div>
+        <div class="info-row"><div class="info-label">Phone:</div><div class="info-value">+91 63940 58460</div></div>
+        <div class="info-row"><div class="info-label">GST:</div><div class="info-value">09BZJPA3758E1ZD</div></div>
+        <div class="info-row"><div class="info-label">Location:</div><div class="info-value">Prayagraj, Uttar Pradesh, India</div></div>
+      </div>
+
+      <!-- Billing To -->
+      <div class="section-title">To</div>
+      <div class="info-box">
+        <div class="info-row"><div class="info-label">Name:</div><div class="info-value">${user.firstName} ${user.lastName}</div></div>
+        <div class="info-row"><div class="info-label">Email:</div><div class="info-value">${user.email}</div></div>
+        <div class="info-row"><div class="info-label">Phone:</div><div class="info-value">${user.phone || 'N/A'}</div></div>
+      </div>
+
+      <!-- Plan Details -->
+      <div class="section-title">Plan Details</div>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th style="text-align: center;">Duration</th>
+            <th style="text-align: right;">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>${selectedPlan.name}</strong></td>
+            <td style="text-align: center;">${months} Month${months > 1 ? 's' : ''}</td>
+            <td style="text-align: right;">₹${basePrice.toLocaleString('en-IN')}</td>
+          </tr>
+          ${discountAmount > 0 ? `
+          <tr>
+            <td colspan="2"><strong>Discount Applied</strong></td>
+            <td style="text-align: right; color: #dc2626;">- ₹${discountAmount.toLocaleString('en-IN')}</td>
+          </tr>
+          ` : ''}
+          <tr class="total-row">
+            <td colspan="2"><strong>Total Amount Paid</strong></td>
+            <td style="text-align: right;" class="highlight">₹${finalPrice.toLocaleString('en-IN')}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Validity Period -->
+      <div class="validity-box">
+        <p>Subscription Validity</p>
+        <p class="dates">${formatDate(validFrom)} - ${formatDate(validTo)}</p>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <p><strong>Thank you for choosing Rapid Steno!</strong></p>
+      <p>For any queries, contact us at <strong>info@rapidsteno.com</strong> or call <strong>+91 63940 58460</strong></p>
+      <p style="margin-top: 15px; font-size: 12px;">This is a computer-generated invoice and does not require a signature.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    // Send email using nodemailer
+    const nodemailer = require('nodemailer');
+    
+    // Check if email credentials are configured
+    const emailUser = process.env.SMTP_USER || process.env.EMAIL_USER;
+    const emailPass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
+    
+    if (!emailUser || !emailPass) {
+      console.error('❌ Email credentials not configured. Please set SMTP_USER and SMTP_PASS in .env file');
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Email service not configured. Please contact administrator to set up email credentials.',
+        error: 'Missing SMTP_USER or SMTP_PASS environment variables'
+      });
+    }
+    
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: emailUser,
+        pass: emailPass,
+      },
+    });
+
+    const mailOptions = {
+      from: `"Rapid Steno" <${emailUser}>`,
+      to: user.email,
+      subject: `Hey ${user.firstName}, here is your invoice for Rapid Steno ${selectedPlan.name}`,
+      html: htmlTemplate,
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    console.log(`✅ Invoice sent to ${user.email} for ${selectedPlan.name} - ${months} month(s)`);
+    res.status(200).json({ 
+      success: true, 
+      message: `Invoice sent successfully to ${user.email}`,
+      invoiceNumber,
+      sentTo: user.email
+    });
+
+  } catch (error) {
+    console.error('Error sending invoice email:', error);
+    res.status(500).json({ success: false, message: 'Failed to send invoice email', error: error.message });
+  }
+};
+
 // ✅ Get Users with Multiple Devices (>2)
 exports.getMultiDeviceUsers = async (req, res) => {
   try {

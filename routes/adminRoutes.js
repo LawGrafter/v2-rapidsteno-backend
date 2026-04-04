@@ -83,6 +83,9 @@ router.get('/users/:userId/device-report', adminController.getUserDeviceReport);
 // ✅ Admin: Force logout a user (invalidate all active sessions)
 router.post('/users/:id/force-logout', adminAuth, adminController.adminForceLogoutUser);
 
+// ✅ Admin: Send invoice email to user
+router.post('/users/:id/send-invoice', adminAuth, adminController.sendInvoiceEmail);
+
 // ✅ NEW: Get user by email
 router.get('/user-by-email/:email', adminAuth, async (req, res) => {
   try {
