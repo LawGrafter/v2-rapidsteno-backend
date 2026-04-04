@@ -584,6 +584,7 @@ const getFormattingDebugLogs = async (req, res) => {
               'rawPayload.debugLog': 1,
               'rawPayload.browserInfo': 1,
               'rawPayload.recordingUrl': 1,
+              'rawPayload.submissionSnapshot': 1,
               userInfo: 1,
             },
           },
@@ -610,6 +611,7 @@ const getFormattingDebugLogs = async (req, res) => {
       debugLog:    r.rawPayload?.debugLog    || null,
       browserInfo: r.rawPayload?.browserInfo || null,
       recordingUrl:r.rawPayload?.recordingUrl|| null,
+      submissionSnapshot: r.rawPayload?.submissionSnapshot || null,
     }));
 
     return res.status(200).json({ total, page, limit, results: formatted });
