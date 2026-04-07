@@ -235,9 +235,70 @@ exports.getPitmanExerciseAggregates = async (req, res) => {
   }
 };
 
+// Public leaderboard: aggregates all users' Pitman submissions
+exports.getPitmanLeaderboard = async (req, res) => {
+  try {
+    const { exerciseNo } = req.query;
+
+    const match = {};
+    if (exerciseNo && exerciseNo !== 'all') {
+      const exNo = parseInt(exerciseNo, 10);
+      if (!Number.isNaN(exNo)) match.exerciseNo = exNo;
+    }
+
+    const pipeline = [
+      Object.keys(match).length ? { $match: match } : null,
+      {
+        $group: {
+          _id: "$user",
+          totalAttempts: { $sum: 1 },
+          avgAccuracy: { $avg: "$accuracy" },
+          bestAccuracy: { $max: "$accuracy" },
+          avgMistakes: { $avg: "$totalMistakes" },
+          exercisesCovered: { $addToSet: "$exerciseNo" },
+          lastSubmittedAt: { $max: "$submittedAt" },
+        }
+      },
+      { $lookup: { from: "users", localField: "_id", foreignField: "_id", as: "userInfo" } },
+      { $unwind: "$userInfo" },
+      {
+        $project: {
+          _id: 0,
+          userId: "$_id",
+          name: { $concat: ["$userInfo.firstName", " ", "$userInfo.lastName"] },
+          totalAttempts: 1,
+          avgAccuracy: { $round: ["$avgAccuracy", 2] },
+          bestAccuracy: 1,
+          avgMistakes: { $round: ["$avgMistakes", 2] },
+          exercisesCovered: { $size: "$exercisesCovered" },
+          lastSubmittedAt: 1,
+        }
+      },
+      { $sort: { bestAccuracy: -1, avgAccuracy: -1 } }
+    ].filter(Boolean);
+
+    const users = await PitmanExerciseSubmission.aggregate(pipeline);
+
+    // Also get the distinct exercise numbers for filter dropdown
+    const exerciseNumbers = await PitmanExerciseSubmission.distinct("exerciseNo");
+    exerciseNumbers.sort((a, b) => a - b);
+
+    return res.status(200).json({
+      success: true,
+      count: users.length,
+      exerciseNumbers,
+      users
+    });
+  } catch (err) {
+    console.error("Pitman Leaderboard Error:", err);
+    return res.status(500).json({ success: false, message: "Failed to fetch leaderboard", error: err.message });
+  }
+};
+
 module.exports = {
   submitPitmanExercise: exports.submitPitmanExercise,
   getUserPitmanSubmissions: exports.getUserPitmanSubmissions,
   getPitmanExerciseAggregates: exports.getPitmanExerciseAggregates,
-  getPitmanLearningExercises: exports.getPitmanLearningExercises
+  getPitmanLearningExercises: exports.getPitmanLearningExercises,
+  getPitmanLeaderboard: exports.getPitmanLeaderboard
 };

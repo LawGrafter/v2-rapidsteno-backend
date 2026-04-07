@@ -523,28 +523,42 @@ const getFormattingDebugLogs = async (req, res) => {
 
     const pipeline = [];
 
-    // 1. Date / template pre-filter (uses collection index)
+    // 1. Date / template pre-filter — default to last 90 days to keep sort under 32 MB (Atlas Free Tier limit)
     const preMatch = {};
     if (template) preMatch.template = template;
     if (dateFrom || dateTo) {
       preMatch.createdAt = {};
       if (dateFrom) preMatch.createdAt.$gte = new Date(dateFrom);
       if (dateTo)   preMatch.createdAt.$lte = new Date(new Date(dateTo).setHours(23, 59, 59, 999));
+    } else {
+      // Default: last 90 days — prevents sorting the entire collection in memory
+      const ninetyDaysAgo = new Date();
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+      preMatch.createdAt = { $gte: ninetyDaysAgo };
     }
-    if (Object.keys(preMatch).length) pipeline.push({ $match: preMatch });
+    pipeline.push({ $match: preMatch });
 
-    // 2. Sort newest-first BEFORE grouping so $first == latest
+    // 2. Project only lightweight fields BEFORE sorting to reduce memory per document
+    pipeline.push({
+      $project: {
+        _id: 1, user: 1, createdAt: 1, template: 1,
+        marksAwarded: 1, totalMistakes: 1,
+        wordMistakesCount: 1, formattingMistakesCount: 1,
+        punctuationMistakesCount: 1, lineBreakMistakesCount: 1,
+      },
+    });
+
+    // 3. Sort newest-first BEFORE grouping so $first == latest
     pipeline.push({ $sort: { createdAt: -1 } });
 
-    // 3. Keep only the latest submission per user
-    pipeline.push({ $group: { _id: '$user', doc: { $first: '$$ROOT' } } });
-    pipeline.push({ $replaceRoot: { newRoot: '$doc' } });
+    // 4. Keep only the latest submission per user
+    pipeline.push({ $group: { _id: '$user', docId: { $first: '$_id' }, createdAt: { $first: '$createdAt' }, template: { $first: '$template' }, marksAwarded: { $first: '$marksAwarded' }, totalMistakes: { $first: '$totalMistakes' }, wordMistakesCount: { $first: '$wordMistakesCount' }, formattingMistakesCount: { $first: '$formattingMistakesCount' }, punctuationMistakesCount: { $first: '$punctuationMistakesCount' }, lineBreakMistakesCount: { $first: '$lineBreakMistakesCount' } } });
 
-    // 4. Join users for name/email display & search
+    // 5. Join users for name/email display & search
     pipeline.push({
       $lookup: {
         from: 'users',
-        localField: 'user',
+        localField: '_id',
         foreignField: '_id',
         as: 'userInfo',
         pipeline: [{ $project: { firstName: 1, lastName: 1, email: 1 } }],
@@ -552,7 +566,7 @@ const getFormattingDebugLogs = async (req, res) => {
     });
     pipeline.push({ $unwind: { path: '$userInfo', preserveNullAndEmptyArrays: true } });
 
-    // 5. Search by user name / email
+    // 6. Search by user name / email
     if (search) {
       pipeline.push({
         $match: {
@@ -565,54 +579,54 @@ const getFormattingDebugLogs = async (req, res) => {
       });
     }
 
-    // 6. Re-sort after group (group destroys order)
+    // 7. Re-sort after group (group destroys order)
     pipeline.push({ $sort: { createdAt: -1 } });
 
-    // Facet for total + paginated results
+    // Facet for total + paginated slim results (no heavy rawPayload yet)
     pipeline.push({
       $facet: {
         total: [{ $count: 'count' }],
         results: [
           { $skip: skip },
           { $limit: limit },
-          {
-            $project: {
-              _id: 1, createdAt: 1, template: 1,
-              marksAwarded: 1, totalMistakes: 1,
-              wordMistakesCount: 1, formattingMistakesCount: 1,
-              punctuationMistakesCount: 1, lineBreakMistakesCount: 1,
-              'rawPayload.debugLog': 1,
-              'rawPayload.browserInfo': 1,
-              'rawPayload.recordingUrl': 1,
-              'rawPayload.submissionSnapshot': 1,
-              userInfo: 1,
-            },
-          },
         ],
       },
     });
 
     const [agg] = await FormattingTestResult.aggregate(pipeline);
+
+    // Now fetch the heavy rawPayload only for the paginated result IDs
+    const resultDocIds = (agg?.results || []).map(r => r.docId);
+    const heavyDocs = resultDocIds.length
+      ? await FormattingTestResult.find({ _id: { $in: resultDocIds } }, {
+          'rawPayload.debugLog': 1, 'rawPayload.browserInfo': 1,
+          'rawPayload.recordingUrl': 1, 'rawPayload.submissionSnapshot': 1,
+        }).lean()
+      : [];
+    const heavyMap = new Map(heavyDocs.map(d => [d._id.toString(), d.rawPayload || {}]));
     const total = agg?.total?.[0]?.count || 0;
 
-    const formatted = (agg?.results || []).map(r => ({
-      _id: r._id,
-      createdAt: r.createdAt,
-      template: r.template,
-      user: r.userInfo ? {
-        name: `${r.userInfo.firstName || ''} ${r.userInfo.lastName || ''}`.trim(),
-        email: r.userInfo.email,
-      } : null,
-      score: {
-        marksAwarded: r.marksAwarded, totalMistakes: r.totalMistakes,
-        wordMistakes: r.wordMistakesCount, formatMistakes: r.formattingMistakesCount,
-        punctuationMistakes: r.punctuationMistakesCount, lineBreakMistakes: r.lineBreakMistakesCount ?? 0,
-      },
-      debugLog:    r.rawPayload?.debugLog    || null,
-      browserInfo: r.rawPayload?.browserInfo || null,
-      recordingUrl:r.rawPayload?.recordingUrl|| null,
-      submissionSnapshot: r.rawPayload?.submissionSnapshot || null,
-    }));
+    const formatted = (agg?.results || []).map(r => {
+      const heavy = heavyMap.get(r.docId?.toString()) || {};
+      return {
+        _id: r.docId,
+        createdAt: r.createdAt,
+        template: r.template,
+        user: r.userInfo ? {
+          name: `${r.userInfo.firstName || ''} ${r.userInfo.lastName || ''}`.trim(),
+          email: r.userInfo.email,
+        } : null,
+        score: {
+          marksAwarded: r.marksAwarded, totalMistakes: r.totalMistakes,
+          wordMistakes: r.wordMistakesCount, formatMistakes: r.formattingMistakesCount,
+          punctuationMistakes: r.punctuationMistakesCount, lineBreakMistakes: r.lineBreakMistakesCount ?? 0,
+        },
+        debugLog:    heavy.debugLog    || null,
+        browserInfo: heavy.browserInfo || null,
+        recordingUrl:heavy.recordingUrl|| null,
+        submissionSnapshot: heavy.submissionSnapshot || null,
+      };
+    });
 
     return res.status(200).json({ total, page, limit, results: formatted });
   } catch (error) {
