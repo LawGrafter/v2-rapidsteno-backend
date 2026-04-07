@@ -3,7 +3,6 @@ const FormattingTestResult = require('../models/FormattingTestResult');
 // @desc    Create formatting test result
 // @route   POST /api/formatting-test/result
 // @access  Private (User)
-// hello
 const createFormattingResult = async (req, res) => {
   try {
     if (!req.user || !req.user.id) {
@@ -552,7 +551,7 @@ const getFormattingDebugLogs = async (req, res) => {
     // 3. Sort newest-first BEFORE grouping so $first == latest
     pipeline.push({ $sort: { createdAt: -1 } });
 
-    // 4. Keep only  the the latest submission per user
+    // 4. Keep only the latest submission per user
     pipeline.push({ $group: { _id: '$user', docId: { $first: '$_id' }, createdAt: { $first: '$createdAt' }, template: { $first: '$template' }, marksAwarded: { $first: '$marksAwarded' }, totalMistakes: { $first: '$totalMistakes' }, wordMistakesCount: { $first: '$wordMistakesCount' }, formattingMistakesCount: { $first: '$formattingMistakesCount' }, punctuationMistakesCount: { $first: '$punctuationMistakesCount' }, lineBreakMistakesCount: { $first: '$lineBreakMistakesCount' } } });
 
     // 5. Join users for name/email display & search
