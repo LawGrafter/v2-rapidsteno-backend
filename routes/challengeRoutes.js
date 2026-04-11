@@ -7,6 +7,7 @@ const {
   getActiveChallenge,
   getChallengeProgress,
   submitChallengeSection,
+  submitChallengeFeedback,
   getChallengeMockQuestions,
   checkAHCPass,
   createChallenge,
@@ -17,6 +18,7 @@ const {
   getChallengeResultSummary,
   getAdminChallengeQuestions,
   resetChallengeSection,
+  deleteUserSubmission,
   updateChallenge,
   deleteChallenge,
 } = require('../controllers/challengeController');
@@ -28,6 +30,7 @@ const adminProtect = require('../middleware/adminMiddleware');
 router.get('/active', userProtect, getActiveChallenge);
 router.get('/progress/:userId', userProtect, getChallengeProgress);
 router.post('/submit', userProtect, submitChallengeSection);
+router.post('/feedback', userProtect, submitChallengeFeedback);
 router.get('/mock-questions/:challengeId', userProtect, getChallengeMockQuestions);
 router.get('/check-pass/:userId', userProtect, checkAHCPass);
 
@@ -41,6 +44,7 @@ router.get('/admin/all', adminProtect, getAllChallenges);
 router.get('/admin/questions/:challengeId', adminProtect, getAdminChallengeQuestions);
 router.get('/admin/results/:challengeId', adminProtect, getChallengeResults);
 router.patch('/admin/reset-section', adminProtect, resetChallengeSection);
+router.delete('/admin/delete-submission', adminProtect, deleteUserSubmission);
 router.get('/admin/results-summary/:challengeId', adminProtect, getChallengeResultSummary);
 
 module.exports = router;

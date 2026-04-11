@@ -461,6 +461,66 @@ exports.resetChallengeSection = async (req, res) => {
   }
 };
 
+// POST /feedback — Submit post-challenge feedback
+exports.submitChallengeFeedback = async (req, res) => {
+  try {
+    const { userId, challengeId, feedback } = req.body;
+
+    if (!userId || !challengeId || !feedback) {
+      return res.status(400).json({ message: 'Missing required fields: userId, challengeId, feedback' });
+    }
+
+    const submission = await ChallengeSubmission.findOne({ userId, challengeId });
+    if (!submission) {
+      return res.status(404).json({ message: 'No submission found for this user and challenge.' });
+    }
+
+    // Only allow feedback if all 3 sections are completed
+    if (!submission.sections.mock?.completed || !submission.sections.formatting?.completed || !submission.sections.exercise?.completed) {
+      return res.status(400).json({ message: 'Must complete all 3 sections before submitting feedback.' });
+    }
+
+    // Don't allow re-submission of feedback
+    if (submission.feedback?.submittedAt) {
+      return res.status(400).json({ message: 'Feedback already submitted.' });
+    }
+
+    submission.feedback = {
+      testExperience: feedback.testExperience,
+      mockTestQuestions: feedback.mockTestQuestions,
+      rapidStenoExperience: feedback.rapidStenoExperience,
+      formattingRating: feedback.formattingRating,
+      exerciseRating: feedback.exerciseRating,
+      submittedAt: new Date(),
+    };
+    submission.markModified('feedback');
+    await submission.save();
+
+    res.json({ success: true, message: 'Feedback submitted successfully.' });
+  } catch (err) {
+    console.error('submitChallengeFeedback error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// DELETE /admin/delete-submission — Delete a user's entire submission
+exports.deleteUserSubmission = async (req, res) => {
+  try {
+    const { challengeId, userId } = req.body;
+    if (!challengeId || !userId) {
+      return res.status(400).json({ message: 'challengeId and userId are required.' });
+    }
+    const result = await ChallengeSubmission.findOneAndDelete({ challengeId, userId });
+    if (!result) {
+      return res.status(404).json({ message: 'No submission found for this user and challenge.' });
+    }
+    res.json({ success: true, message: 'User submission deleted successfully.' });
+  } catch (err) {
+    console.error('deleteUserSubmission error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 exports.getChallengeResultSummary = async (req, res) => {
   try {
     const { challengeId } = req.params;

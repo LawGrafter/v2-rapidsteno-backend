@@ -21,6 +21,16 @@ const challengeSubmissionSchema = new mongoose.Schema({
     exercise: { type: sectionDataSchema, default: () => ({}) },
     mock: { type: sectionDataSchema, default: () => ({}) },
   },
+
+  // Post-challenge feedback
+  feedback: {
+    testExperience: { type: Number, min: 1, max: 5 },
+    mockTestQuestions: { type: Number, min: 1, max: 5 },
+    rapidStenoExperience: { type: Number, min: 1, max: 5 },
+    formattingRating: { type: Number, min: 1, max: 5 },
+    exerciseRating: { type: Number, min: 1, max: 5 },
+    submittedAt: { type: Date },
+  },
 }, { timestamps: true });
 
 // Compound index: one submission per user per challenge
