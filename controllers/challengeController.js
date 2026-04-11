@@ -81,12 +81,12 @@ exports.submitChallengeSection = async (req, res) => {
       return res.status(400).json({ message: `Section "${section}" is already completed and locked.` });
     }
 
-    // Check sequential order
-    if (section === 'exercise' && !submission.sections.formatting?.completed) {
-      return res.status(400).json({ message: 'Must complete formatting section first.' });
+    // Check sequential order: Mock → Formatting → Exercise
+    if (section === 'formatting' && !submission.sections.mock?.completed) {
+      return res.status(400).json({ message: 'Must complete Mock Test section first.' });
     }
-    if (section === 'mock' && !submission.sections.exercise?.completed) {
-      return res.status(400).json({ message: 'Must complete exercise section first.' });
+    if (section === 'exercise' && !submission.sections.formatting?.completed) {
+      return res.status(400).json({ message: 'Must complete Mock Test and Formatting sections first.' });
     }
 
     // For mock test, compute score server-side using stored correct answers
