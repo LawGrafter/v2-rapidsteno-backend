@@ -503,7 +503,7 @@ exports.submitChallengeFeedback = async (req, res) => {
   }
 };
 
-// DELETE /admin/delete-submission — Delete a user's entire submission
+// DELETE /admin/delete-submission — Delete a user's entire challenge submission
 exports.deleteUserSubmission = async (req, res) => {
   try {
     const { challengeId, userId } = req.body;
