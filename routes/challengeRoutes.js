@@ -21,6 +21,8 @@ const {
   deleteUserSubmission,
   updateChallenge,
   deleteChallenge,
+  updateAccessMode,
+  searchUsersForChallenge,
 } = require('../controllers/challengeController');
 
 const { userProtect } = require('../middleware/userMiddleware');
@@ -46,5 +48,7 @@ router.get('/admin/results/:challengeId', adminProtect, getChallengeResults);
 router.patch('/admin/reset-section', adminProtect, resetChallengeSection);
 router.delete('/admin/delete-submission', adminProtect, deleteUserSubmission);
 router.get('/admin/results-summary/:challengeId', adminProtect, getChallengeResultSummary);
+router.patch('/admin/access-mode/:challengeId', adminProtect, updateAccessMode);
+router.get('/admin/search-users', adminProtect, searchUsersForChallenge);
 
 module.exports = router;

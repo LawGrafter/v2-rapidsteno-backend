@@ -14,6 +14,17 @@ exports.getActiveChallenge = async (req, res) => {
     if (!challenge) {
       return res.status(200).json(null);
     }
+
+    // If accessMode is 'selected', check if user is in allowedUsers
+    if (challenge.accessMode === 'selected') {
+      const userId = req.user?._id?.toString();
+      const allowed = (challenge.allowedUsers || []).map(id => id.toString());
+      if (!userId || !allowed.includes(userId)) {
+        // Return challenge as inactive for this user
+        return res.status(200).json({ ...challenge, isActive: false, _accessDenied: true });
+      }
+    }
+
     res.json(challenge);
   } catch (err) {
     console.error('getActiveChallenge error:', err);
@@ -389,7 +400,10 @@ exports.uploadMockTestCSV = async (req, res) => {
 // GET /admin/all — Get all challenges
 exports.getAllChallenges = async (req, res) => {
   try {
-    const challenges = await Challenge.find().sort({ createdAt: -1 }).lean();
+    const challenges = await Challenge.find()
+      .sort({ createdAt: -1 })
+      .populate('allowedUsers', '_id firstName lastName email')
+      .lean();
     res.json(challenges);
   } catch (err) {
     console.error('getAllChallenges error:', err);
@@ -517,6 +531,55 @@ exports.deleteUserSubmission = async (req, res) => {
     res.json({ success: true, message: 'User submission deleted successfully.' });
   } catch (err) {
     console.error('deleteUserSubmission error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// PATCH /admin/access-mode/:challengeId — Update access mode and allowed users
+exports.updateAccessMode = async (req, res) => {
+  try {
+    const { challengeId } = req.params;
+    const { accessMode, allowedUsers } = req.body;
+
+    const challenge = await Challenge.findById(challengeId);
+    if (!challenge) {
+      return res.status(404).json({ message: 'Challenge not found.' });
+    }
+
+    if (accessMode) challenge.accessMode = accessMode;
+    if (allowedUsers !== undefined) challenge.allowedUsers = allowedUsers;
+
+    await challenge.save();
+    res.json({ success: true, challenge });
+  } catch (err) {
+    console.error('updateAccessMode error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// GET /admin/search-users?q=... — Search users by name/email for adding to allowed list
+exports.searchUsersForChallenge = async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.length < 2) {
+      return res.json([]);
+    }
+
+    const regex = new RegExp(q, 'i');
+    const users = await User.find({
+      $or: [
+        { firstName: regex },
+        { lastName: regex },
+        { email: regex },
+      ],
+    })
+      .select('_id firstName lastName email phone subscriptionType')
+      .limit(20)
+      .lean();
+
+    res.json(users);
+  } catch (err) {
+    console.error('searchUsersForChallenge error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 };

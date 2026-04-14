@@ -17,6 +17,10 @@ const challengeSchema = new mongoose.Schema({
 
   // Status
   isActive: { type: Boolean, default: false },
+
+  // Access control: 'all' = everyone, 'selected' = only allowedUsers
+  accessMode: { type: String, enum: ['all', 'selected'], default: 'all' },
+  allowedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 }, { timestamps: true });
 
 module.exports = mongoose.model('Challenge', challengeSchema);
