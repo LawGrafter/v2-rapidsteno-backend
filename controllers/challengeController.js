@@ -103,7 +103,18 @@ exports.submitChallengeSection = async (req, res) => {
     // For mock test, compute score server-side using stored correct answers
     let finalData = { ...data };
     if (section === 'mock') {
-      const questions = await ChallengeQuestion.find({ challengeId }).lean();
+      const mockLang = data.language || 'english';
+      const scoreLangFilter = mockLang === 'hindi'
+        ? { language: 'hindi' }
+        : { $or: [{ language: 'english' }, { language: { $exists: false } }, { language: null }] };
+      let questions = await ChallengeQuestion.find({ challengeId, ...scoreLangFilter }).lean();
+      // Fallback to English if no Hindi questions
+      if (questions.length === 0 && mockLang === 'hindi') {
+        questions = await ChallengeQuestion.find({
+          challengeId,
+          $or: [{ language: 'english' }, { language: { $exists: false } }, { language: null }],
+        }).lean();
+      }
       const userAnswers = data.userAnswers || {};
       let correct = 0;
       const MARKS_PER_QUESTION = 2;
@@ -142,14 +153,32 @@ exports.submitChallengeSection = async (req, res) => {
   }
 };
 
-// GET /mock-questions/:challengeId — Get mock test questions
+// GET /mock-questions/:challengeId?lang=english|hindi — Get mock test questions
 exports.getChallengeMockQuestions = async (req, res) => {
   try {
     const { challengeId } = req.params;
-    const questions = await ChallengeQuestion.find({ challengeId })
+    const lang = (req.query.lang || 'english').toLowerCase();
+
+    // For English: match 'english' or documents without language field (legacy)
+    const langFilter = lang === 'hindi'
+      ? { language: 'hindi' }
+      : { $or: [{ language: 'english' }, { language: { $exists: false } }, { language: null }] };
+
+    let questions = await ChallengeQuestion.find({ challengeId, ...langFilter })
       .sort({ questionNo: 1 })
-      .select('-correctOption') // Don't send correct answers to client
+      .select('-correctOption')
       .lean();
+
+    // Fallback to English if Hindi has no questions
+    if (questions.length === 0 && lang === 'hindi') {
+      questions = await ChallengeQuestion.find({
+        challengeId,
+        $or: [{ language: 'english' }, { language: { $exists: false } }, { language: null }],
+      })
+        .sort({ questionNo: 1 })
+        .select('-correctOption')
+        .lean();
+    }
 
     // Map to frontend-friendly format
     const mapped = questions.map((q, idx) => ({
@@ -580,6 +609,66 @@ exports.searchUsersForChallenge = async (req, res) => {
     res.json(users);
   } catch (err) {
     console.error('searchUsersForChallenge error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// POST /admin/upload-hindi-questions — Upload Hindi translated questions
+exports.uploadHindiQuestions = async (req, res) => {
+  try {
+    const { challengeId, questions } = req.body;
+    if (!challengeId || !Array.isArray(questions) || questions.length === 0) {
+      return res.status(400).json({ message: 'challengeId and questions array are required.' });
+    }
+
+    const challenge = await Challenge.findById(challengeId);
+    if (!challenge) {
+      return res.status(404).json({ message: 'Challenge not found.' });
+    }
+
+    // Delete existing Hindi questions for this challenge
+    await ChallengeQuestion.deleteMany({ challengeId, language: 'hindi' });
+
+    // Prepare and insert Hindi questions
+    const hindiQuestions = questions.map((q, idx) => ({
+      challengeId,
+      question: q.question,
+      optionA: q.optionA,
+      optionB: q.optionB,
+      optionC: q.optionC,
+      optionD: q.optionD,
+      correctOption: q.correctOption,
+      subject: q.subject || '',
+      language: 'hindi',
+      originalQuestionId: q.originalQuestionId || null,
+      questionNo: idx + 1,
+    }));
+
+    await ChallengeQuestion.insertMany(hindiQuestions);
+
+    // Update hindi count on challenge
+    challenge.hindiQuestionsCount = hindiQuestions.length;
+    await challenge.save();
+
+    res.json({
+      success: true,
+      questionsCount: hindiQuestions.length,
+      message: `${hindiQuestions.length} Hindi questions uploaded successfully.`,
+    });
+  } catch (err) {
+    console.error('uploadHindiQuestions error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// GET /admin/hindi-questions-count/:challengeId — Count Hindi questions
+exports.getHindiQuestionsCount = async (req, res) => {
+  try {
+    const { challengeId } = req.params;
+    const count = await ChallengeQuestion.countDocuments({ challengeId, language: 'hindi' });
+    res.json({ count });
+  } catch (err) {
+    console.error('getHindiQuestionsCount error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 };

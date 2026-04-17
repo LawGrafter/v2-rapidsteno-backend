@@ -10,6 +10,8 @@ const challengeQuestionSchema = new mongoose.Schema({
   optionD: { type: String, required: true },
   correctOption: { type: String, required: true }, // "A", "B", "C", "D" or full text
   subject: { type: String, default: '' },
+  language: { type: String, enum: ['english', 'hindi'], default: 'english' },
+  originalQuestionId: { type: mongoose.Schema.Types.ObjectId, ref: 'ChallengeQuestion', default: null },
 
   // Optional ordering
   questionNo: { type: Number },

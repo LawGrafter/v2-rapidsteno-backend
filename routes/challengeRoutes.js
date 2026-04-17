@@ -23,6 +23,8 @@ const {
   deleteChallenge,
   updateAccessMode,
   searchUsersForChallenge,
+  uploadHindiQuestions,
+  getHindiQuestionsCount,
 } = require('../controllers/challengeController');
 
 const { userProtect } = require('../middleware/userMiddleware');
@@ -50,5 +52,7 @@ router.delete('/admin/delete-submission', adminProtect, deleteUserSubmission);
 router.get('/admin/results-summary/:challengeId', adminProtect, getChallengeResultSummary);
 router.patch('/admin/access-mode/:challengeId', adminProtect, updateAccessMode);
 router.get('/admin/search-users', adminProtect, searchUsersForChallenge);
+router.post('/admin/upload-hindi-questions', adminProtect, uploadHindiQuestions);
+router.get('/admin/hindi-questions-count/:challengeId', adminProtect, getHindiQuestionsCount);
 
 module.exports = router;
