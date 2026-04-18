@@ -25,6 +25,7 @@ const {
   searchUsersForChallenge,
   uploadHindiQuestions,
   getHindiQuestionsCount,
+  updateMockQuestion,
 } = require('../controllers/challengeController');
 
 const { userProtect } = require('../middleware/userMiddleware');
@@ -54,5 +55,6 @@ router.patch('/admin/access-mode/:challengeId', adminProtect, updateAccessMode);
 router.get('/admin/search-users', adminProtect, searchUsersForChallenge);
 router.post('/admin/upload-hindi-questions', adminProtect, uploadHindiQuestions);
 router.get('/admin/hindi-questions-count/:challengeId', adminProtect, getHindiQuestionsCount);
+router.put('/admin/update-question/:questionId', adminProtect, updateMockQuestion);
 
 module.exports = router;

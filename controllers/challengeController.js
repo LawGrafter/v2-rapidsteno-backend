@@ -700,3 +700,27 @@ exports.getChallengeResultSummary = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// PUT /admin/update-question/:questionId — Update a single mock question
+exports.updateMockQuestion = async (req, res) => {
+  try {
+    const { questionId } = req.params;
+    const { question, optionA, optionB, optionC, optionD, correctOption } = req.body;
+
+    const q = await ChallengeQuestion.findById(questionId);
+    if (!q) return res.status(404).json({ message: 'Question not found' });
+
+    if (question !== undefined) q.question = question;
+    if (optionA !== undefined) q.optionA = optionA;
+    if (optionB !== undefined) q.optionB = optionB;
+    if (optionC !== undefined) q.optionC = optionC;
+    if (optionD !== undefined) q.optionD = optionD;
+    if (correctOption !== undefined) q.correctOption = correctOption;
+
+    await q.save();
+    res.json({ message: 'Question updated successfully', question: q });
+  } catch (err) {
+    console.error('updateMockQuestion error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
