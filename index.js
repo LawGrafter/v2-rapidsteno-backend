@@ -76,6 +76,7 @@ app.use('/api/matter-reading', matterReadingRoutes);
 app.use('/api/challenge', challengeRoutes);
 app.use('/api/all-exam-aspirants', require('./routes/allExamAspirantRoutes'));
 app.use('/api/admin-activity', require('./routes/adminActivityRoutes')); // ✅ Admin User Activity Logs
+app.use('/api/notifications', require('./routes/notificationRoutes'));
 
 // Trust proxy to get correct client IP when behind a reverse proxy (like Nginx, Vercel, etc.)
 app.set('trust proxy', true);
