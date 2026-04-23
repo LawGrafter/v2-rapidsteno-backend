@@ -141,6 +141,7 @@ exports.getUserPitmanSubmissions = async (req, res) => {
 };
 
 // ✅ Aggregated stats: per-user, per-exercise attempts, averages, and recent attempts with full user & exercise details
+// NOTE: Split into lightweight $group (no $push) + separate .find() for recent attempts to stay under Atlas free-tier 33MB memory limit
 exports.getPitmanExerciseAggregates = async (req, res) => {
   try {
     const { userId, exerciseNo, attemptsLimit } = req.query;
@@ -163,9 +164,9 @@ exports.getPitmanExerciseAggregates = async (req, res) => {
 
     const limit = attemptsLimit ? Math.max(1, Math.min(100, parseInt(attemptsLimit, 10))) : 10;
 
+    // Step 1: Lightweight aggregation — stats only, NO $push accumulator
     const pipeline = [
       Object.keys(match).length ? { $match: match } : null,
-      { $sort: { createdAt: -1 } },
       {
         $group: {
           _id: { user: "$user", exercise: "$exercise", exerciseNo: "$exerciseNo" },
@@ -181,21 +182,6 @@ exports.getPitmanExerciseAggregates = async (req, res) => {
           avgMissingWords: { $avg: "$missingWords" },
           avgSpacingMistakes: { $avg: "$spacingMistakes" },
           lastSubmittedAt: { $max: "$submittedAt" },
-          attemptsList: {
-            $push: {
-              accuracy: "$accuracy",
-              totalMistakes: "$totalMistakes",
-              capitalMistakes: "$capitalMistakes",
-              spellingMistakes: "$spellingMistakes",
-              punctuationMistakes: "$punctuationMistakes",
-              extraWords: "$extraWords",
-              missingWords: "$missingWords",
-              spacingMistakes: "$spacingMistakes",
-              timeTaken: "$timeTaken",
-              submittedAt: "$submittedAt",
-              createdAt: "$createdAt"
-            }
-          }
         }
       },
       {
@@ -216,17 +202,46 @@ exports.getPitmanExerciseAggregates = async (req, res) => {
           avgMissingWords: { $round: ["$avgMissingWords", 2] },
           avgSpacingMistakes: { $round: ["$avgSpacingMistakes", 2] },
           lastSubmittedAt: 1,
-          attemptsRecent: { $slice: ["$attemptsList", limit] }
         }
       },
       { $lookup: { from: "users", localField: "user", foreignField: "_id", as: "user" } },
       { $unwind: "$user" },
       { $lookup: { from: "pitmanexercises", localField: "exercise", foreignField: "_id", as: "exercise" } },
       { $unwind: "$exercise" },
-      { $sort: { "user.firstName": 1, exerciseNo: 1 } }
     ].filter(Boolean);
 
     const data = await PitmanExerciseSubmission.aggregate(pipeline);
+
+    // Step 2: Fetch recent attempts via a single efficient find() query
+    // Get all recent submissions sorted by date, capped at limit * groups (max 5000)
+    const recentCap = Math.min(data.length * limit, 5000);
+    const recentSubs = await PitmanExerciseSubmission.find(match)
+      .sort({ createdAt: -1 })
+      .limit(recentCap)
+      .select("user exerciseNo accuracy totalMistakes capitalMistakes spellingMistakes punctuationMistakes extraWords missingWords spacingMistakes timeTaken submittedAt createdAt")
+      .lean();
+
+    // Step 3: Group recent submissions by user+exerciseNo, keep only N per group
+    const recentMap = {};
+    recentSubs.forEach(s => {
+      const key = `${s.user}_${s.exerciseNo}`;
+      if (!recentMap[key]) recentMap[key] = [];
+      if (recentMap[key].length < limit) recentMap[key].push(s);
+    });
+
+    // Step 4: Merge recent attempts into aggregation results & sort
+    data.forEach(row => {
+      const key = `${row.user._id || row.user}_${row.exerciseNo}`;
+      row.attemptsRecent = recentMap[key] || [];
+    });
+
+    data.sort((a, b) => {
+      const nameA = (a.user.firstName || '').toLowerCase();
+      const nameB = (b.user.firstName || '').toLowerCase();
+      if (nameA < nameB) return -1;
+      if (nameA > nameB) return 1;
+      return (a.exerciseNo || 0) - (b.exerciseNo || 0);
+    });
 
     return res.status(200).json({ success: true, count: data.length, data });
   } catch (err) {
@@ -274,10 +289,11 @@ exports.getPitmanLeaderboard = async (req, res) => {
           lastSubmittedAt: 1,
         }
       },
-      { $sort: { bestAccuracy: -1, avgAccuracy: -1 } }
     ].filter(Boolean);
 
     const users = await PitmanExerciseSubmission.aggregate(pipeline);
+    // Sort in JS to avoid MongoDB memory limit on Atlas free tier
+    users.sort((a, b) => (b.bestAccuracy || 0) - (a.bestAccuracy || 0) || (b.avgAccuracy || 0) - (a.avgAccuracy || 0));
 
     // Also get the distinct exercise numbers for filter dropdown
     const exerciseNumbers = await PitmanExerciseSubmission.distinct("exerciseNo");
